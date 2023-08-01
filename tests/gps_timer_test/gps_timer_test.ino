@@ -30,10 +30,10 @@ TinyGPSPlus gps;
 
 
 //Last Arduino microsecond reading
-uint32_t prevMicros = 0;
+uint32_t microStart = 0;
 
 //Average Arduino microsecond error per arduino second
-int32_t microError = 0;
+int32_t secondError = 0;
 
 //Flag to begin calibration
 bool calibrateFlag = false;
@@ -75,7 +75,7 @@ void loop() {
     Serial.println();
   }
   Serial.print("Error: ");
-  Serial.println(microError);
+  Serial.println(secondError);
 
   //Notifies if GPS data not recieved
   if (millis() > 500 && gps.charsProcessed() < 10)
@@ -97,14 +97,14 @@ static void updateDelay(uint32_t ms)
       //Calibrates Arduino microseconds
       if (pps.changeTo(HIGH)) {
         //Based on PPS signal
-        calibrateMicros();
+        calibrateSecond();
         calibrateFlag = true;
       } else if ((gps.satellites.value() == 0) && (gps.time.isUpdated()) && (!updateFlag)) {
         //Based on GPS updates
-        calibrateMicros();
+        calibrateSecond();
         calibrateFlag = true;
         updateFlag = true;
-      } else if (micros() - prevMicros > 2000000) {
+      } else if (micros() - microStart > 2000000) {
         //Shifts reference frame to avoid overflow
         shiftMicros();
         calibrateFlag = false;
@@ -122,28 +122,28 @@ static void updateDelay(uint32_t ms)
 //Gets adjusted microseconds
 static uint32_t realMicros() {
   //Gets elapsed time
-  int32_t elapsed = (int32_t) (micros() - prevMicros);
+  int32_t elapsed = (int32_t) (micros() - microStart);
   
   //Subtracts microsecond error every second
-  return (elapsed - elapsed*microError/1000000) % 1000000;
+  return (elapsed - elapsed*secondError/1000000) % 1000000;
 }
 
 //Calculates error in Arduino clock based on PPS signal
-static void calibrateMicros() {
+static void calibrateSecond() {
   //Gets elapsed time
-  uint32_t elapsed = micros() - prevMicros;
+  uint32_t elapsed = micros() - microStart;
 
   //Only calibrates if two PPS signals are received
   if (calibrateFlag) {
     //Gets error in microseconds every second
-    microError = ((int32_t) elapsed - 1000000)*1000000/(int32_t) elapsed;
+    secondError = ((int32_t) elapsed - 1000000)*1000000/(int32_t) elapsed;
   }
 
   //Resets microsecond counter
-  prevMicros += elapsed;
+  microStart += elapsed;
 }
 
 //Shifts microsecond reference frame to avoid overflow while accounting for error
 static void shiftMicros() {
-  prevMicros = micros() - realMicros();
+  microStart = micros() - realMicros();
 }

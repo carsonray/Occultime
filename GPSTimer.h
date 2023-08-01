@@ -1,68 +1,85 @@
 /*
-  Button.h - Library for handling button events and debouncing
+  GPSTimer.h - Handles synchronized microsecond timing based on GPS PPS signal
   Created by Carson G. Ray, August 12 2022.
 */
 
-#ifndef Button_h
-#define Button_h
+#ifndef GPSTimer_h
+#define GPSTime_h
 
 #include <Arduino.h>
+#include <TinyGPSPlus.h>
+#include <Button.h>
 
-class Button {
+class GPSTimer {
 	private:
-		//Button input pin
-		int pin;
-		
-		//Debounce time
-		int debounce = 3;
+		//TinyGPSPlus object
+		TinyGPSPlus* gps;
 
-		//Raw button state
-		bool rawstate = LOW;
+		//PPS monitor
+		Button* pps;
 
-		//Previous button state
-		bool prevstate = LOW;
+		//Whether PPS is attached
+		bool ppsFlag = false;
 
-		//Debounced button state
-		bool bouncestate = LOW;
+		//Arduino microsecond reference frame
+		uint32_t microStart = 0;
 
-		//Fallback state for debounce
-		bool fallback = LOW;
+		//Average Arduino microseconds per real second
+		uint32_t microsPerSecond = 1000000;
 
-		//Pullup/pulldown state
-		bool pullup = false;
+		//Average Arduino microsecond error per arduino second
+		int32_t secondError = 0;
 
-		//Current debounce start time
-		int bounceStart;
+		//Flag when time is initialized
+		bool initFlag = false;
 
-		//Previous pulse start time
-		int prevStart;
+		//Flag to begin calibration
+		bool calibrateFlag = false;
 
-		//Current pulse start time
-		int pulseStart;
 
-		void updatePulse();
+		//Date
+		uint16_t years = 0;
+		uint8_t months = 0;
+		uint8_t days = 0;
 
+		//Days in each month
+		uint8_t monthDays[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+		//Time
+		uint8_t hours = 0;
+		uint8_t minutes = 0;
+		uint8_t seconds = 0;
+
+		uint32_t realMicros();
+		void calibrateSecond();
+
+		void initTime();
+		void propogateTime();
+
+		void addSeconds(uint8_t secondDiff);
+		void addMinutes(uint8_t minuteDiff);
+		void addHours(uint8_t hourDiff);
+
+		void addDays(uint8_t dayDiff);
+		void addYears(uint16_t yearDiff);
 	public:
-    	Button(int pin);
-		Button(int pin, bool pullup);    
-		Button(int pin, int debounce, bool pullup=false);
+    	GPSTimer(TinyGPSPlus* gps);
+
+		void attachPPS(Button* pps);
 
 		void update();
+		
+		uint16_t year();
+		uint8_t month();
+		uint8_t day();
 
-		bool state();
-		bool state(bool bounce);
+		uint8_t hour();
+		uint8_t minute();
+		uint8_t second();
+		uint32_t microsecond();
 
-		bool change();
-		bool change(bool bounce);
-
-		bool changeTo(bool target);
-		bool changeTo(bool target, bool bounce);
-
-		int pulseTime();
-		int pulseTime(bool bounce);
-
-		int pulse();
-		int pulse(bool target);
+		uint32_t getMicrosPerSecond();
+		int32_t getSecondError();
 };
 
 #endif

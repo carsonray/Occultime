@@ -1,148 +1,191 @@
 /*
-  Button.cpp - Library for handling button events and debouncing
+  GPSTimer.h - Handles synchronized microsecond timing based on GPS PPS signal
   Created by Carson G. Ray, August 12 2022.
-  Released into the public domain.
 */
 
 #include <Arduino.h>
-#include "Button.h"
+#include "GPSTimer.h"
 
-//Sets button input
-Button::Button(int pin) {
-	this->pin = pin;
-	pinMode(pin, INPUT);
-
-	//Sets debounce and pulse start times
-	bounceStart = millis();
-	pulseStart = millis();
-	prevStart = millis();
+//Attaches gps object
+GPSTimer::GPSTimer(TinyGPSPlus* gps) {
+	this->gps = gps;
 }
 
-//Sets pullup/pulldown state
-Button::Button(int pin, bool pullup) : Button(pin) {
-	this->pullup = pullup;
+//Attaches pps pin monitor
+void GPSTimer::attachPPS(Button* pps) {
+	this->pps = pps;
+
+	//Raises pps attachment flag
+	ppsFlag = true;
 }
 
-//Sets debounce length
-Button::Button(int pin, int debounce, bool pullup=false): Button(pin, pullup) {
-	this->debounce = debounce;
-}
+//Calibrates timing using GPS
+void GPSTimer::update() {
+	if (ppsFlag && pps.changeTo(HIGH)) {
+		//Calibrates on PPS rising edge
+		calibrateSecond();
 
-//Updates button states
-void Button::update() {
-	//Updates pulse times and fallback state if fully debounced
-	updatePulse();
+		//Enables calibration after a reference PPS signal
+		calibrateFlag = true;
+	} else if ((gps.satellites.value() == 0) && gps.time.isUpdated()) {
+		//Calibrates on GPS time update (every second)
+		calibrateSecond();
 
-	if (change()) {
-		//Sets fallback to current state
-		fallback = state();
+		//Enables calibration after a reference time update
+		calibrateFlag = true;
+	} else if (rawMicros() > 2000000) {
+		//Shifts time reference to avoid overflow
+		propogateTime();
+
+		//Resets flags
+		calibrateFlag = false;
+		initFlag = false;
 	}
-
-	//Updates button states
-
-	//Sets previous state to current state
-	prevstate = rawstate;
-
-	//Updates current state (negates if pullup)
-	rawstate = (digitalRead(pin) != pullup);
-
-	//Updates debounced state
-
-	//Resets debounce start if the raw state changes
-	if (change(false)) {
-		bounceStart = millis();
-	}
-
-	//If debounce time has elapsed, update debounce state
-	if (pulseTime(false) >= debounce) {
-		bouncestate = rawstate;
+	
+	if (gps.time.isUpdated()) {
+		//Initializes time at first fix
+		if (!initFlag)
+			initTime();
+			initFlag = true;
 	} else {
-		//Otherwise, drop back to fallback
-		bouncestate = fallback;
+		//Resets update flag if time has not been updated
+		updateFlag = false;
+	}
+
+	//Updates pps monitor
+	pps.update();
+}
+
+uint32_t GPSTimer::rawMicros() {
+	return micros() - microStart;
+}
+
+//Gets adjusted microseconds
+uint32_t GPSTimer::realMicros() {
+  //Gets elapsed time
+  int32_t elapsed = (int32_t) rawMicros();
+  
+  //Subtracts microsecond error every second
+  return elapsed - elapsed*secondError/1000000;
+}
+
+//Calculates error in Arduino clock every second
+void GPSTimer::calibrateSecond() {
+	//Gets elapsed time since last calibration
+	uint32_t current = micros();
+	uint32_t elapsed = current - microStart;
+
+	//Increments seconds and resets milliseconds
+	addSeconds(1);
+	microStart = current;
+
+	//Only calibrates if two PPS signals are received
+	if (calibrateFlag) {
+		//Gets error in microseconds every second
+		microsPerSecond = elapsed;
+		secondError = ((int32_t) elapsed - 1000000)*1000000/(int32_t) elapsed;
 	}
 }
 
-//Updates pulse times if fully debounced
-void Button::updatePulse() {
-	if (change()) {
-		//Sets previous pulse start
-		prevStart = pulseStart;
-		
-		//Resets to beginning of debounce
-		pulseStart = bounceStart;
+void GPSTimer::initTime() {
+	years = gps.date.year();
+	months = gps.date.month() - 1;
+	days = gps.date.day() - 1;
+
+	hours = gps.time.hour();
+	minutes = gps.time.minute();
+	seconds = gps.time.second();
+}
+
+void GPSTimer::propogateTime() {
+	uint8_t secondDiff = realMicros() / 1000000;
+	microStart += secondDiff * 1000000;
+	if (secondDiff > 0) {
+		addSeconds(secondDiff);
 	}
 }
 
-// Button event functions
-
-// Current button state
-bool Button::state() {
-	//Default is using debounce
-	return state(true);
-}
-
-bool Button::state(bool bounce) {
-	if (bounce) {
-		//Gives debounced button state
-		return bouncestate;
-	} else {
-		//Gives raw button state
-		return rawstate;
+void GPSTimer::addSeconds(uint8_t secondDiff) {
+	seconds += secondDiff;
+	uint8_t minuteDiff = seconds / 60;
+	seconds = seconds % 60;
+	if (minuteDiff > 0) {
+		addMinutes(minuteDiff);
 	}
 }
 
-//If button state has changed
-bool Button::change() {
-	return change(true);
-}
-
-bool Button::change(bool bounce) {
-	if (bounce) {
-		//If debounced state has changed
-		return (state() != fallback);
-	} else {
-		//If raw state has changed
-		return (state(false) != prevstate);
+void GPSTimer::addMinutes(uint8_t minuteDiff) {
+	minutes += minuteDiff;
+	uint8_t hourDiff = minutes / 60;
+	minutes = minutes % 60;
+	if (hourDiff > 0) {
+		addHours(hourDiff);
 	}
 }
 
-//If state has just changed to target
-bool Button::changeTo(bool target) {
-	return changeTo(target, true);
-}
-
-bool Button::changeTo(bool target, bool bounce) {
-	return change(bounce) && (state(bounce) == target);
-}
-
-int Button::pulseTime() {
-	return pulseTime(true);
-}
-
-//Elapsed time of current pulse
-int Button::pulseTime(bool bounce) {
-	//Updates pulse times
-	updatePulse();
-
-	if (bounce) {
-		//Return debounced pulse time
-		return millis() - pulseStart;
-	} else {
-		//Return raw pulse time
-		return millis() - bounceStart;
+void GPSTimer::addHours(uint8_t hourDiff) {
+	hours += hourDiff;
+	uint8_t dayDiff = hours / 24;
+	hours = hours % 24;
+	if (dayDiff > 0) {
+		addDays(dayDiff);
 	}
 }
 
-//Returns previous pulse length
-int Button::pulse() {
-	return pulseStart - prevStart;
-}
-
-//Returns previous pulse length if it was target state
-int Button::pulse(bool target) {
-	if (state() != target) {
-		return pulse();
-	} else {
-		return 0;
+void GPSTimer::addDays(uint8_t dayDiff) {
+	days += dayDiff;
+	while (true) {
+		uint8_t maxDays = monthDays[months];
+		if (days >= maxDays) {
+			days -= maxDays;
+			months++;
+			if (months >= 12) {
+				addYears(1);
+			}
+			months %= 12;
+		} else {
+			break;
+		}
 	}
 }
+
+void GPSTimer::addYears(uint8_t yearDiff) {
+	years += yearDiff;
+}
+
+uint16_t GPSTimer::year() {
+	return years;
+}
+
+uint8_t GPSTimer::month() {
+	return months + 1;
+}
+
+uint8_t GPSTimer::day() {
+	return days + 1;
+}
+
+uint8_t GPSTimer::hour() {
+	return hours;
+}	
+
+uint8_t GPSTimer::minute() {
+	return minutes;
+}
+
+uint8_t GPSTimer::second() {
+	return seconds;
+}
+uint32_t GPSTimer::microsecond() {
+	uint32_t microTime = realMicros();
+	return (microTime < 1000000) ? microTime : 999999;
+}
+
+uint32_t GPSTimer::getMicrosPerSecond() {
+	return microsPerSecond;
+}
+
+int32_t GPSTimer::getSecondError() {
+	return secondError;
+}
+
