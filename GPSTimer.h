@@ -42,6 +42,9 @@ class GPSTimer {
 		//Tracks current second value to determine updates
 		uint8_t currSecond = 0;
 
+		//Last pps signal
+		uint32_t ppsTime = 0;
+
 
 		//Flag to begin calibration
 		bool calibrateFlag = false;
@@ -64,6 +67,7 @@ class GPSTimer {
 
 		uint32_t rawMicros();
 		uint32_t realMicros();
+		void checkPPS();
 		void calibrateSecond();
 
 		void setTime();

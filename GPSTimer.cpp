@@ -23,23 +23,9 @@ void GPSTimer::attachPPS(uint8_t ppsPin) {
 
 //Calibrates timing using GPS
 void GPSTimer::update() {
-	currPPS = digitalRead(ppsPin);
-	if (ppsFlag && currPPS && (!prevPPS)) {
-		//Calibrates on PPS rising edge
-		calibrateSecond();
-
-		//Raises pps active flag
-		ppsActive = true;
-
-		//Enables calibration after a reference PPS signal
-		calibrateFlag = true;
-	} else if (gps->time.second() != currSecond) {
-		//Updates current second
-		currSecond = gps->time.second();
-
-		//Sets time
-		setTime();
-
+	checkPPS();
+	//If PPS is active, only do expensive time check after calibration
+	if ((!ppsActive || (micros() - ppsTime < 200000)) && (gps->time.second() != currSecond)) {
 		//Calibrates on GPS time update without satellites
 		if (!ppsActive) {
 			calibrateSecond();
@@ -47,18 +33,25 @@ void GPSTimer::update() {
 			//Enables calibration after a reference time update
 			calibrateFlag = true;
 		}
-	} else if (rawMicros() > 2000000) {
+
+		//Sets time
+		setTime();
+
+		//Updates current second
+		currSecond = gps->time.second();
+	}
+	checkPPS();
+	if (rawMicros() > 2000000) {
 		//Shifts time reference to avoid overflow
 		microStart = micros();
+		ppsTime = micros();
 
 		//Resets flags
 		calibrateFlag = false;
 		updateFlag = false;
 		ppsActive = false;
 	}
-
-	//Updates PPS value
-	prevPPS = currPPS;
+	checkPPS();
 }
 
 uint32_t GPSTimer::rawMicros() {
@@ -72,6 +65,24 @@ uint32_t GPSTimer::realMicros() {
   
   //Subtracts microsecond error every second
   return elapsed - elapsed*secondError/1000000;
+}
+
+//Checks for rising edge of PPS pin to calibrate second
+void GPSTimer::checkPPS() {
+	currPPS = digitalRead(ppsPin);
+	if (ppsFlag && currPPS && (!prevPPS)) {
+		//Calibrates on PPS rising edge
+		calibrateSecond();
+		ppsTime = micros();
+
+		//Raises pps active flag
+		ppsActive = true;
+
+		//Enables calibration after a reference PPS signal
+		calibrateFlag = true;
+	}
+	//Updates PPS value
+	prevPPS = currPPS;
 }
 
 //Calculates error in Arduino clock every second
