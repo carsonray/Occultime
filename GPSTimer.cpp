@@ -12,8 +12,10 @@ GPSTimer::GPSTimer(TinyGPSPlus* gps) {
 }
 
 //Attaches pps pin monitor
-void GPSTimer::attachPPS(Button* pps) {
-	this->pps = pps;
+void GPSTimer::attachPPS(uint8_t ppsPin) {
+	this->ppsPin = ppsPin;
+
+	pinMode(ppsPin, INPUT);
 
 	//Raises pps attachment flag
 	ppsFlag = true;
@@ -21,7 +23,8 @@ void GPSTimer::attachPPS(Button* pps) {
 
 //Calibrates timing using GPS
 void GPSTimer::update() {
-	if (ppsFlag && pps->changeTo(HIGH)) {
+	currPPS = digitalRead(ppsPin);
+	if (ppsFlag && currPPS && (!prevPPS)) {
 		//Calibrates on PPS rising edge
 		calibrateSecond();
 
@@ -54,8 +57,8 @@ void GPSTimer::update() {
 		ppsActive = false;
 	}
 
-	//Updates pps monitor
-	pps->update();
+	//Updates PPS value
+	prevPPS = currPPS;
 }
 
 uint32_t GPSTimer::rawMicros() {
@@ -74,12 +77,11 @@ uint32_t GPSTimer::realMicros() {
 //Calculates error in Arduino clock every second
 void GPSTimer::calibrateSecond() {
 	//Gets elapsed time since last calibration
-	uint32_t current = micros();
-	uint32_t elapsed = current - microStart;
+	uint32_t elapsed = micros() - microStart;
 
 	//Increments seconds and resets milliseconds
 	addSeconds(1);
-	microStart = current;
+	microStart += elapsed;
 
 	//Only calibrates if two PPS signals are received
 	if (calibrateFlag) {

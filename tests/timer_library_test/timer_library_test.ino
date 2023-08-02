@@ -1,6 +1,5 @@
 #include <TinyGPSPlus.h>
 #include <SoftwareSerial.h>
-#include <Button.h>
 #include <GPSTimer.h>
 
 /*
@@ -10,19 +9,12 @@
 //Serial settings
 #define Rx 4
 #define Tx 3
-static const uint32_t GPSBaud = 9600;
 
 //PPS pin
 #define ppsPin 2
 
-
-
-
 //Serial connection object
 SoftwareSerial ss(Rx, Tx);
-
-//PPS monitor
-Button pps = Button(ppsPin, 0);
 
 //TinyGPSPlus object
 TinyGPSPlus gps;
@@ -32,9 +24,9 @@ GPSTimer timer = GPSTimer(&gps);
 
 void setup() {
   Serial.begin(115200);
-  ss.begin(GPSBaud);
+  ss.begin(9600);
 
-  timer.attachPPS(&pps);
+  timer.attachPPS(ppsPin);
 }
 
 void loop() {

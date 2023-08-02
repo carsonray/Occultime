@@ -8,18 +8,27 @@
 
 #include <Arduino.h>
 #include <TinyGPSPlus.h>
-#include <Button.h>
 
 class GPSTimer {
 	private:
 		//TinyGPSPlus object
 		TinyGPSPlus* gps;
 
-		//PPS monitor
-		Button* pps;
+		//PPS pin
+		uint8_t ppsPin;
 
 		//Whether PPS is attached
 		bool ppsFlag = false;
+
+		//Flag when pps is active
+		bool ppsActive = false;
+
+		//Last pps value
+		bool prevPPS = false;
+
+		//Current pps value
+		bool currPPS = false;
+
 
 		//Arduino microsecond reference frame
 		uint32_t microStart = 0;
@@ -33,8 +42,6 @@ class GPSTimer {
 		//Tracks current second value to determine updates
 		uint8_t currSecond = 0;
 
-		//Flag when pps is active
-		bool ppsActive = false;
 
 		//Flag to begin calibration
 		bool calibrateFlag = false;
@@ -69,7 +76,7 @@ class GPSTimer {
 	public:
     	GPSTimer(TinyGPSPlus* gps);
 
-		void attachPPS(Button* pps);
+		void attachPPS(uint8_t ppsPin);
 
 		void update();
 		
