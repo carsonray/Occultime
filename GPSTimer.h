@@ -93,6 +93,7 @@ class GPSTimer {
 		int32_t getSecondError();
 
 		bool isUpdated();
+		bool isPPSActive();
 };
 
 #endif

@@ -202,3 +202,9 @@ bool GPSTimer::isUpdated() {
 	return updateFlag;
 }
 
+//Whether PPS is active
+bool GPSTimer::isPPSActive() {
+	updateFlag = false;
+	return ppsActive;
+}
+
