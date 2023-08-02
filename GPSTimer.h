@@ -30,15 +30,20 @@ class GPSTimer {
 		//Average Arduino microsecond error per arduino second
 		int32_t secondError = 0;
 
-		//Flag when time is initialized
-		bool initFlag = false;
+		//Tracks current second value to determine updates
+		uint8_t currSecond = 0;
+
+		//Flag when pps is active
+		bool ppsActive = false;
 
 		//Flag to begin calibration
 		bool calibrateFlag = false;
 
+		//Flag when data is updated
+		bool updateFlag = false;
 
 		//Date
-		uint16_t years = 0;
+		uint16_t years = 2000;
 		uint8_t months = 0;
 		uint8_t days = 0;
 
@@ -50,16 +55,15 @@ class GPSTimer {
 		uint8_t minutes = 0;
 		uint8_t seconds = 0;
 
+		uint32_t rawMicros();
 		uint32_t realMicros();
 		void calibrateSecond();
 
-		void initTime();
-		void propogateTime();
+		void setTime();
 
 		void addSeconds(uint8_t secondDiff);
 		void addMinutes(uint8_t minuteDiff);
 		void addHours(uint8_t hourDiff);
-
 		void addDays(uint8_t dayDiff);
 		void addYears(uint16_t yearDiff);
 	public:
@@ -80,6 +84,8 @@ class GPSTimer {
 
 		uint32_t getMicrosPerSecond();
 		int32_t getSecondError();
+
+		bool isUpdated();
 };
 
 #endif

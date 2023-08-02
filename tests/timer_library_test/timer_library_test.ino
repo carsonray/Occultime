@@ -28,13 +28,13 @@ Button pps = Button(ppsPin, 0);
 TinyGPSPlus gps;
 
 //GPS timer object
-GPSTimer timer = GPSTimer(gps);
+GPSTimer timer = GPSTimer(&gps);
 
 void setup() {
   Serial.begin(115200);
   ss.begin(GPSBaud);
 
-  timer.attachPPS(pps);
+  timer.attachPPS(&pps);
 }
 
 void loop() {
@@ -61,7 +61,7 @@ void loop() {
   } else {
     Serial.println();
   }
-  Serial.print("us per Second");
+  Serial.print("us per Second: ");
   Serial.println(timer.getMicrosPerSecond());
   Serial.print("Second Error: ");
   Serial.println(timer.getSecondError());

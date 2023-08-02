@@ -21,39 +21,41 @@ void GPSTimer::attachPPS(Button* pps) {
 
 //Calibrates timing using GPS
 void GPSTimer::update() {
-	if (ppsFlag && pps.changeTo(HIGH)) {
+	if (ppsFlag && pps->changeTo(HIGH)) {
 		//Calibrates on PPS rising edge
 		calibrateSecond();
 
+		//Raises pps active flag
+		ppsActive = true;
+
 		//Enables calibration after a reference PPS signal
 		calibrateFlag = true;
-	} else if ((gps.satellites.value() == 0) && gps.time.isUpdated()) {
-		//Calibrates on GPS time update (every second)
-		calibrateSecond();
+	} else if (gps->time.second() != currSecond) {
+		//Updates current second
+		currSecond = gps->time.second();
 
-		//Enables calibration after a reference time update
-		calibrateFlag = true;
+		//Sets time
+		setTime();
+
+		//Calibrates on GPS time update without satellites
+		if (!ppsActive) {
+			calibrateSecond();
+
+			//Enables calibration after a reference time update
+			calibrateFlag = true;
+		}
 	} else if (rawMicros() > 2000000) {
 		//Shifts time reference to avoid overflow
-		propogateTime();
+		microStart = micros();
 
 		//Resets flags
 		calibrateFlag = false;
-		initFlag = false;
-	}
-	
-	if (gps.time.isUpdated()) {
-		//Initializes time at first fix
-		if (!initFlag)
-			initTime();
-			initFlag = true;
-	} else {
-		//Resets update flag if time has not been updated
 		updateFlag = false;
+		ppsActive = false;
 	}
 
 	//Updates pps monitor
-	pps.update();
+	pps->update();
 }
 
 uint32_t GPSTimer::rawMicros() {
@@ -85,24 +87,19 @@ void GPSTimer::calibrateSecond() {
 		microsPerSecond = elapsed;
 		secondError = ((int32_t) elapsed - 1000000)*1000000/(int32_t) elapsed;
 	}
+
+	//Sets update flag
+	updateFlag = true;
 }
 
-void GPSTimer::initTime() {
-	years = gps.date.year();
-	months = gps.date.month() - 1;
-	days = gps.date.day() - 1;
+void GPSTimer::setTime() {
+	years = gps->date.year();
+	months = gps->date.month() - 1;
+	days = gps->date.day() - 1;
 
-	hours = gps.time.hour();
-	minutes = gps.time.minute();
-	seconds = gps.time.second();
-}
-
-void GPSTimer::propogateTime() {
-	uint8_t secondDiff = realMicros() / 1000000;
-	microStart += secondDiff * 1000000;
-	if (secondDiff > 0) {
-		addSeconds(secondDiff);
-	}
+	hours = gps->time.hour();
+	minutes = gps->time.minute();
+	seconds = gps->time.second();
 }
 
 void GPSTimer::addSeconds(uint8_t secondDiff) {
@@ -149,43 +146,57 @@ void GPSTimer::addDays(uint8_t dayDiff) {
 	}
 }
 
-void GPSTimer::addYears(uint8_t yearDiff) {
+void GPSTimer::addYears(uint16_t yearDiff) {
 	years += yearDiff;
 }
 
 uint16_t GPSTimer::year() {
+	updateFlag = false;
 	return years;
 }
 
 uint8_t GPSTimer::month() {
+	updateFlag = false;
 	return months + 1;
 }
 
 uint8_t GPSTimer::day() {
+	updateFlag = false;
 	return days + 1;
 }
 
 uint8_t GPSTimer::hour() {
+	updateFlag = false;
 	return hours;
 }	
 
 uint8_t GPSTimer::minute() {
+	updateFlag = false;
 	return minutes;
 }
 
 uint8_t GPSTimer::second() {
+	updateFlag = false;
 	return seconds;
 }
 uint32_t GPSTimer::microsecond() {
+	updateFlag = false;
 	uint32_t microTime = realMicros();
 	return (microTime < 1000000) ? microTime : 999999;
 }
 
 uint32_t GPSTimer::getMicrosPerSecond() {
+	updateFlag = false;
 	return microsPerSecond;
 }
 
 int32_t GPSTimer::getSecondError() {
+	updateFlag = false;
 	return secondError;
+}
+
+//Whether calibration has been updated since last query
+bool GPSTimer::isUpdated() {
+	return updateFlag;
 }
 
