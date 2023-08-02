@@ -16,6 +16,9 @@
 //Tone pin
 #define tonePin 5
 
+//Real frequency
+#define realFreq 2000
+
 //Serial connection object
 AltSoftSerial ss(Rx, Tx);
 
@@ -28,27 +31,21 @@ GPSTimer timer = GPSTimer(&gps);
 void setup() {
   Serial.begin(115200);
   ss.begin(9600);
+  
   timer.attachPPS(ppsPin);
-
-  tone(tonePin, 2000);
 }
 
 void loop() {
-  
-  //Delays and updates
-  updateDelay(500);
-}
-
-static void updateDelay(uint32_t ms)
-{
-  uint32_t start = millis();
-  do
-  {
-    while (ss.available())
+  while (ss.available())
       //Feeds gps object
       gps.encode(ss.read());
 
-      //Updates timer object
-      timer.update();
-  } while (millis() - start < ms);
+  //Updates timer object
+  timer.update();
+
+  if (timer.isUpdated()) {
+    uint16_t toneFreq = (uint16_t) realFreq*1000000/timer.getMicrosPerSecond();
+    tone(tonePin, toneFreq);
+    Serial.println(toneFreq);
+  }
 }
