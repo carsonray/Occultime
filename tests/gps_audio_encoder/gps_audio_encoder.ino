@@ -1,5 +1,5 @@
 #include <TinyGPSPlus.h>
-#include <SoftwareSerial.h>
+#include <AltSoftSerial.h>
 #include <GPSTimer.h>
 
 /*
@@ -7,8 +7,8 @@
 */
 
 //Serial settings
-#define Rx 4
-#define Tx 3
+#define Rx 8
+#define Tx 9
 
 //PPS pin
 #define ppsPin 2
@@ -17,29 +17,29 @@
 #define tonePin 5
 
 //Serial connection object
-//SoftwareSerial ss(Rx, Tx);
+AltSoftSerial ss(Rx, Tx);
 
 //TinyGPSPlus object
-//TinyGPSPlus gps;
+TinyGPSPlus gps;
 
 //GPS timer object
-//GPSTimer timer = GPSTimer(&gps);
+GPSTimer timer = GPSTimer(&gps);
 
 void setup() {
-  //Serial.begin(115200);
-  //ss.begin(9600);
+  Serial.begin(115200);
+  ss.begin(9600);
+  timer.attachPPS(ppsPin);
 
-  //timer.attachPPS(ppsPin);
   tone(tonePin, 2000);
 }
 
 void loop() {
   
   //Delays and updates
-  //updateDelay(500);
+  updateDelay(500);
 }
 
-/*static void updateDelay(uint32_t ms)
+static void updateDelay(uint32_t ms)
 {
   uint32_t start = millis();
   do
@@ -51,4 +51,4 @@ void loop() {
       //Updates timer object
       timer.update();
   } while (millis() - start < ms);
-}*/
+}
