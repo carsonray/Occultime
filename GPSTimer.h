@@ -17,34 +17,32 @@ class GPSTimer {
 		//PPS pin
 		uint8_t ppsPin;
 
-		//Whether PPS is attached
-		bool ppsFlag = false;
-
 		//Flag when pps is active
 		bool ppsActive = false;
 
-		//Last pps value
-		bool prevPPS = false;
+		//Square wave pin
+		uint8_t wavePin;
 
-		//Current pps value
-		bool currPPS = false;
+		//Flag when wave pin is enabled
+		uint8_t waveEnabled = false;
 
+		//Square wave frequency (Hz)
+		uint16_t frequency = 1;
 
-		//Arduino microsecond reference frame
-		uint32_t microStart = 0;
+		//Current wave pin state
+		bool waveState = false;
 
-		//Average Arduino microseconds per real second
-		uint32_t microsPerSecond = 1000000;
+		//Counts timer overflows
+		uint16_t ovfCount = 0;
 
-		//Average Arduino microsecond error per arduino second
-		int32_t secondError = 0;
+		//Counts square wave half-pulses
+		uint16_t halfPulseCount = 0;
+
+		//Average Arduino clock cycles per real second
+		uint32_t cyclesPerSecond = 16000000;
 
 		//Tracks current second value to determine updates
 		uint8_t currSecond = 0;
-
-		//Last pps signal
-		uint32_t ppsTime = 0;
-
 
 		//Flag to begin calibration
 		bool calibrateFlag = false;
@@ -65,10 +63,11 @@ class GPSTimer {
 		uint8_t minutes = 0;
 		uint8_t seconds = 0;
 
-		uint32_t rawMicros();
-		uint32_t realMicros();
-		void checkPPS();
-		void calibrateSecond();
+		uint32_t totalCycles();
+		uint32_t totalCycles(uint16_t timestamp);
+		uint32_t adjustedMicros();
+		void calibrateSecond(uint32_t microsPerSecond);
+		void nextWaveInterrupt();
 
 		void setTime();
 
@@ -78,11 +77,14 @@ class GPSTimer {
 		void addDays(uint8_t dayDiff);
 		void addYears(uint16_t yearDiff);
 	public:
-    	GPSTimer(TinyGPSPlus* gps);
+    	GPSTimer(TinyGPSPlus* gps, uint8_t ppsPin);
 
-		void attachPPS(uint8_t ppsPin);
-
+		void begin();
 		void update();
+
+		void enableWave();
+		void enableWave(uint8_t wavePin, uint16_t wavelength);
+		void disableWave();
 		
 		uint16_t year();
 		uint8_t month();

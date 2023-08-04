@@ -7,25 +7,30 @@
 #include "GPSTimer.h"
 
 //Attaches gps object
-GPSTimer::GPSTimer(TinyGPSPlus* gps) {
+GPSTimer::GPSTimer(TinyGPSPlus* gps, uint8_t ppsPin) {
 	this->gps = gps;
+	this->ppsPin = ppsPin;
+	pinMode(ppsPin, INPUT);
 }
 
-//Attaches pps pin monitor
-void GPSTimer::attachPPS(uint8_t ppsPin) {
-	this->ppsPin = ppsPin;
+//Initializes timer and interrupts
+void GPSTimer::begin() {
+	//Disables interrupts
+	cli();
+	
+	TCCR1A = 0;           // Init Timer1A
+  	TCCR1B = 0;           // Init Timer1B
+  	TCCR1B |= B11000001;  // Internal Clock, Prescaler = 1, ICU Filter EN, ICU Pin RISING
+  	TIMSK1 |= B00100011;  // Enable Timer CAPT, COMPA, and OVF Interrupts
 
-	pinMode(ppsPin, INPUT);
-
-	//Raises pps attachment flag
-	ppsFlag = true;
+	//Enables interrupts
+	sei();
 }
 
 //Calibrates timing using GPS
 void GPSTimer::update() {
-	checkPPS();
 	//If PPS is active, only do expensive time check after calibration
-	if ((!ppsActive || (micros() - ppsTime < 200000)) && (gps->time.second() != currSecond)) {
+	if ((!ppsActive || (timerCount < 4000000)) && (gps->time.second() != currSecond)) {
 		//Calibrates on GPS time update without satellites
 		if (!ppsActive) {
 			calibrateSecond();
@@ -40,69 +45,76 @@ void GPSTimer::update() {
 		//Updates current second
 		currSecond = gps->time.second();
 	}
-	checkPPS();
-	if (rawMicros() > 2000000) {
-		//Shifts time reference to avoid overflow
-		microStart = micros();
-		ppsTime = micros();
 
+	if (totalCycles() > 32000000) {
 		//Resets flags
 		calibrateFlag = false;
 		updateFlag = false;
 		ppsActive = false;
 	}
-	checkPPS();
 }
 
-uint32_t GPSTimer::rawMicros() {
-	return micros() - microStart;
+//Enables calibrated square wave output
+void GPSTimer::enableWave() {
+	waveEnabled = true;
+}
+void GPSTimer::enableWave(uint8_t wavePin, uint16_t frequency) {
+	this->wavePin = wavePin;
+	this->frequency = frequency;
+
+	//Raises square wave flag
+	waveEnabled = true;
+}
+
+//Disables square wave output
+void GPSTimer::disableWave() {
+	waveEnabled = false;
+}
+
+//Gets total clock cycles since last second
+uint32_t GPSTimer::totalCycles() {
+	return totalCycles(timer1Val);
+}
+
+//Gets total clock cycles based on timestamp
+uint32_t GPSTimer::totalCycles(uint16_t timestamp) {
+	return ovfCount*65536 + timestamp;
 }
 
 //Gets adjusted microseconds
-uint32_t GPSTimer::realMicros() {
-  //Gets elapsed time
-  int32_t elapsed = (int32_t) rawMicros();
+uint32_t GPSTimer::adjustedMicros() {
+  //Gets elapsed clock cycles
+  int32_t cycles = (int32_t) totalCycles();
   
-  //Subtracts microsecond error every second
-  return elapsed - elapsed*secondError/1000000;
-}
-
-//Checks for rising edge of PPS pin to calibrate second
-void GPSTimer::checkPPS() {
-	currPPS = digitalRead(ppsPin);
-	if (ppsFlag && currPPS && (!prevPPS)) {
-		//Calibrates on PPS rising edge
-		calibrateSecond();
-		ppsTime = micros();
-
-		//Raises pps active flag
-		ppsActive = true;
-
-		//Enables calibration after a reference PPS signal
-		calibrateFlag = true;
-	}
-	//Updates PPS value
-	prevPPS = currPPS;
+  //Converts to microseconds
+  return cycles*1000000/cyclesPerSecond;
 }
 
 //Calculates error in Arduino clock every second
-void GPSTimer::calibrateSecond() {
-	//Gets elapsed time since last calibration
-	uint32_t elapsed = micros() - microStart;
-
-	//Increments seconds and resets milliseconds
+void GPSTimer::calibrateSecond(uint32_t microsPerSecond) {
+	//Increments seconds
 	addSeconds(1);
-	microStart += elapsed;
 
 	//Only calibrates if two PPS signals are received
 	if (calibrateFlag) {
 		//Gets error in microseconds every second
-		microsPerSecond = elapsed;
-		secondError = ((int32_t) elapsed - 1000000)*1000000/(int32_t) elapsed;
+		this->microsPerSecond = microsPerSecond;
 	}
 
 	//Sets update flag
 	updateFlag = true;
+}
+
+//Sets next square wave interrupt
+void GPSTimer::nextWaveInterrupt() {
+	//Writes current state
+	digitalWrite(wavePin, waveState);
+
+	//Increments half pulse counter
+	halfPulseCount++;
+
+	//Sets interrupt point at next half pulse
+	OCR1A = (cyclesPerSecond*halfPulseCount/(frequency*2)) % 65536;
 }
 
 void GPSTimer::setTime() {
@@ -194,7 +206,7 @@ uint8_t GPSTimer::second() {
 }
 uint32_t GPSTimer::microsecond() {
 	updateFlag = false;
-	uint32_t microTime = realMicros();
+	uint32_t microTime = adjustedMicros();
 	return (microTime < 1000000) ? microTime : 999999;
 }
 
@@ -218,4 +230,45 @@ bool GPSTimer::isPPSActive() {
 	updateFlag = false;
 	return ppsActive;
 }
+
+//Checks for rising edge of PPS signal
+ISR(TIMER1_CAPT_vect) {
+	cli();
+
+	//Resets timer
+	TCNT1 = 0;
+
+	//Calibrates second
+	calibrateSecond(totalCycles(ICR1));
+
+	//Updates sqaure wave
+	if (waveEnabled) {
+		waveState = true;
+		halfPulseCount = 0;
+		nextWaveInterrupt();
+	}
+
+	//Resets overflow counter
+	ovfCount = 0;
+
+	//Raises pps active flag
+	ppsActive = true;
+
+	//Enables calibration after a reference PPS signal
+	calibrateFlag = true;
+
+	sei();
+}
+
+ISR(TIMER1_COMPA_vect) {
+	if (waveEnabled) {
+		waveState = !waveState;
+		nextWaveInterrupt();
+	}
+}
+
+ISR(TIMER1_OVF_vect) {
+	ovfCount++;
+}
+
 

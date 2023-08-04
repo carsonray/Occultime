@@ -1,5 +1,5 @@
 #include <TinyGPSPlus.h>
-#include <AltSoftSerial.h>
+#include <SoftwareSerial.h>
 #include <GPSTimer.h>
 
 /*
@@ -20,19 +20,18 @@
 #define realFreq 2000
 
 //Serial connection object
-AltSoftSerial ss(Rx, Tx);
+SoftwareSerial ss(Rx, Tx);
 
 //TinyGPSPlus object
 TinyGPSPlus gps;
 
 //GPS timer object
-GPSTimer timer = GPSTimer(&gps);
+GPSTimer timer = GPSTimer(&gps, ppsPin);
 
 void setup() {
   Serial.begin(115200);
   ss.begin(9600);
-  
-  timer.attachPPS(ppsPin);
+  timer.enableWave(tonePin, realFreq);
 }
 
 void loop() {
@@ -42,10 +41,4 @@ void loop() {
 
   //Updates timer object
   timer.update();
-
-  if (timer.isUpdated()) {
-    uint16_t toneFreq = (uint16_t) realFreq*1000000/timer.getMicrosPerSecond();
-    tone(tonePin, toneFreq);
-    Serial.println(toneFreq);
-  }
 }
