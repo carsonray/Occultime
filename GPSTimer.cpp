@@ -21,7 +21,7 @@ void GPSTimer::begin() {
 	TCCR1A = 0;           // Init Timer1A
   	TCCR1B = 0;           // Init Timer1B
   	TCCR1B |= B11000001;  // Internal Clock, Prescaler = 1, ICU Filter EN, ICU Pin RISING
-  	TIMSK1 |= B00100011;  // Enable Timer CAPT, COMPA, and OVF Interrupts
+  	TIMSK1 |= B00100001;  // Enable Timer CAPT and OVF Interrupts
 
 	//Enables interrupts
 	sei();
@@ -34,9 +34,6 @@ void GPSTimer::update() {
 		//Calibrates on GPS time update without satellites
 		if (!ppsActive) {
 			calibrateSecond();
-
-			//Enables calibration after a reference time update
-			calibrateFlag = true;
 		}
 
 		//Sets time
@@ -99,10 +96,13 @@ void GPSTimer::calibrateSecond(uint32_t microsPerSecond) {
 	if (calibrateFlag) {
 		//Gets error in microseconds every second
 		this->microsPerSecond = microsPerSecond;
+
+		//Sets update flag
+		updateFlag = true;
 	}
 
-	//Sets update flag
-	updateFlag = true;
+	//Enables calibration after a reference time update
+	calibrateFlag = true;
 }
 
 //Sets next square wave interrupt
@@ -242,10 +242,17 @@ ISR(TIMER1_CAPT_vect) {
 	calibrateSecond(totalCycles(ICR1));
 
 	//Updates sqaure wave
-	if (waveEnabled) {
+	if (waveEnabled && updateFlag) {
+		//Enables COMPA interrupt
+		TIMSK1 |= B00000010;
+		
+		//Starts new square wave
 		waveState = true;
 		halfPulseCount = 0;
 		nextWaveInterrupt();
+	} else {
+		//Disables COMPA interrupt
+		TIMSK1 &= B11111101;
 	}
 
 	//Resets overflow counter
@@ -253,9 +260,6 @@ ISR(TIMER1_CAPT_vect) {
 
 	//Raises pps active flag
 	ppsActive = true;
-
-	//Enables calibration after a reference PPS signal
-	calibrateFlag = true;
 
 	sei();
 }
