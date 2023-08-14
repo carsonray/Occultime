@@ -10,8 +10,7 @@
 #define Rx 8
 #define Tx 9
 
-//PPS pin
-#define ppsPin 2
+//PPS attacted to input capture pin 8
 
 //Tone pin
 #define tonePin 5

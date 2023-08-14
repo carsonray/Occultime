@@ -37,7 +37,7 @@ void GPSTimer::begin() {
 	
 	TCCR1A = 0;           // Init Timer1A
   	TCCR1B = 0;           // Init Timer1B
-  	TCCR1B |= B01000001;  // Internal Clock, Prescaler = 1, ICU Pin RISING
+  	TCCR1B |= B11000001;  // Internal Clock, Prescaler = 1, ICU Pin RISING
   	TIMSK1 |= B00100001;  // Enable Timer CAPT and OVF Interrupts
 
 	//Enables interrupts
