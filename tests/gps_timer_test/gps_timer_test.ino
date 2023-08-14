@@ -10,8 +10,7 @@
 #define Rx 4
 #define Tx 3
 
-//PPS pin
-#define ppsPin 2
+//PPS attacted to input capture pin 8
 
 //Serial connection object
 SoftwareSerial ss(Rx, Tx);
@@ -25,7 +24,6 @@ GPSTimer timer = GPSTimer(&gps);
 void setup() {
   Serial.begin(115200);
   ss.begin(9600);
-  GPSTimer::attachPPS(ppsPin);
   timer.begin();
 }
 

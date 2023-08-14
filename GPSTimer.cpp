@@ -7,18 +7,16 @@
 #include "GPSTimer.h"
 
 //Initializes static members
-uint8_t GPSTimer::ppsPin = 2;
 bool GPSTimer::ppsActive = false;
 uint8_t GPSTimer::wavePin = 5;
 bool GPSTimer::waveEnabled = false;
 uint16_t GPSTimer::frequency = 1;
 bool GPSTimer::waveState = false;
 uint16_t GPSTimer::ovfCount = 0;
-uint16_t GPSTimer::halfPulseCount = 0;
+uint32_t GPSTimer::halfPulseCount = 0;
 uint32_t GPSTimer::cyclesPerSecond = 16000000;
 bool GPSTimer::calibrateFlag = false;
 bool GPSTimer::updateFlag = false;
-uint8_t GPSTimer::currSecond = 0;
 uint16_t GPSTimer::years = 2000;
 uint8_t GPSTimer::months = 0;
 uint8_t GPSTimer::days = 0;
@@ -39,7 +37,7 @@ void GPSTimer::begin() {
 	
 	TCCR1A = 0;           // Init Timer1A
   	TCCR1B = 0;           // Init Timer1B
-  	TCCR1B |= B11000001;  // Internal Clock, Prescaler = 1, ICU Filter EN, ICU Pin RISING
+  	TCCR1B |= B01000001;  // Internal Clock, Prescaler = 1, ICU Pin RISING
   	TIMSK1 |= B00100001;  // Enable Timer CAPT and OVF Interrupts
 
 	//Enables interrupts
@@ -49,31 +47,29 @@ void GPSTimer::begin() {
 //Calibrates timing using GPS
 void GPSTimer::update() {
 	//If PPS is active, only do expensive time check after calibration
-	if ((!ppsActive || (totalCycles() < 4000000)) && (gps->time.second() != currSecond)) {
+	if ((!ppsActive || (totalCycles() < 4000000)) && (gps->time.second() != seconds)) {
 		//Calibrates on GPS time update without satellites
 		if (!ppsActive) {
 			calibrateSecond();
+
+			//Resets timer and overflow counter
+			TCNT1 = 0;
+			ovfCount = 0;
 		}
 
 		//Sets time
 		setTime();
-
-		//Updates current second
-		currSecond = gps->time.second();
 	}
 
 	if (totalCycles() > 32000000) {
+		//Resets overflow count
+		ovfCount = 0;
+
 		//Resets flags
 		calibrateFlag = false;
 		updateFlag = false;
 		ppsActive = false;
 	}
-}
-
-//Attaches pps pin
-void GPSTimer::attachPPS(uint8_t ppsPin) {
-	GPSTimer::ppsPin = ppsPin;
-	pinMode(ppsPin, INPUT);
 }
 
 //Enables calibrated square wave output
@@ -99,17 +95,17 @@ uint32_t GPSTimer::totalCycles() {
 }
 
 //Gets total clock cycles based on timestamp
-uint32_t GPSTimer::totalCycles(uint16_t timestamp) {
+uint32_t GPSTimer::totalCycles(uint32_t timestamp) {
 	return ovfCount*65536 + timestamp;
 }
 
 //Gets adjusted microseconds
 uint32_t GPSTimer::adjustedMicros() {
   //Gets elapsed clock cycles
-  int32_t cycles = (int32_t) totalCycles();
+  int64_t cycles = (uint64_t) totalCycles();
   
   //Converts to microseconds
-  return cycles*1000000/cyclesPerSecond;
+  return (uint32_t) (cycles*1000000/cyclesPerSecond);
 }
 
 //Calculates error in Arduino clock every second
@@ -145,7 +141,7 @@ void GPSTimer::nextWaveInterrupt() {
 	OCR1A = (cyclesPerSecond*halfPulseCount/(frequency*2)) % 65536;
 }
 
-void GPSTimer::setWaveState(boolean waveState) {
+void GPSTimer::setWaveState(bool waveState) {
 	GPSTimer::waveState = waveState;
 }
 
@@ -169,7 +165,7 @@ boolean GPSTimer::getUpdateFlag() {
 	return updateFlag;
 }
 
-void GPSTimer::setHalfPulseCount(uint16_t halfPulseCount) {
+void GPSTimer::setHalfPulseCount(uint32_t halfPulseCount) {
 	GPSTimer::halfPulseCount = halfPulseCount;
 }
 
@@ -327,7 +323,6 @@ ISR(TIMER1_COMPA_vect) {
 }
 
 ISR(TIMER1_OVF_vect) {
-	Serial.println("ovf");
 	GPSTimer::setOvfCount(GPSTimer::getOvfCount() + 1);
 }
 
