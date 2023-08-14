@@ -11,81 +11,93 @@
 
 class GPSTimer {
 	private:
-		//TinyGPSPlus object
-		TinyGPSPlus* gps;
-
 		//PPS pin
-		uint8_t ppsPin;
+		static uint8_t ppsPin;
 
 		//Flag when pps is active
-		bool ppsActive = false;
+		static bool ppsActive;
 
 		//Square wave pin
-		uint8_t wavePin;
+		static uint8_t wavePin;
 
 		//Flag when wave pin is enabled
-		uint8_t waveEnabled = false;
+		static bool waveEnabled;
 
 		//Square wave frequency (Hz)
-		uint16_t frequency = 1;
+		static uint16_t frequency;
 
 		//Current wave pin state
-		bool waveState = false;
+		static bool waveState;
 
 		//Counts timer overflows
-		uint16_t ovfCount = 0;
+		static uint16_t ovfCount;
 
 		//Counts square wave half-pulses
-		uint16_t halfPulseCount = 0;
+		static uint16_t halfPulseCount;
 
 		//Average Arduino clock cycles per real second
-		uint32_t cyclesPerSecond = 16000000;
-
-		//Tracks current second value to determine updates
-		uint8_t currSecond = 0;
+		static uint32_t cyclesPerSecond;
 
 		//Flag to begin calibration
-		bool calibrateFlag = false;
+		static bool calibrateFlag;
 
 		//Flag when data is updated
-		bool updateFlag = false;
+		static bool updateFlag;
+
+		//Tracks current second value to determine updates
+		static uint8_t currSecond;
 
 		//Date
-		uint16_t years = 2000;
-		uint8_t months = 0;
-		uint8_t days = 0;
+		static uint16_t years;
+		static uint8_t months;
+		static uint8_t days;
 
 		//Days in each month
-		uint8_t monthDays[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+		static uint8_t monthDays[12];
 
 		//Time
-		uint8_t hours = 0;
-		uint8_t minutes = 0;
-		uint8_t seconds = 0;
+		static uint8_t hours;
+		static uint8_t minutes;
+		static uint8_t seconds;
 
-		uint32_t totalCycles();
-		uint32_t totalCycles(uint16_t timestamp);
 		uint32_t adjustedMicros();
-		void calibrateSecond();
-		void calibrateSecond(uint32_t microsPerSecond);
-		void nextWaveInterrupt();
 
 		void setTime();
 
-		void addSeconds(uint8_t secondDiff);
-		void addMinutes(uint8_t minuteDiff);
-		void addHours(uint8_t hourDiff);
-		void addDays(uint8_t dayDiff);
-		void addYears(uint16_t yearDiff);
+		static void addSeconds(uint8_t secondDiff);
+		static void addMinutes(uint8_t minuteDiff);
+		static void addHours(uint8_t hourDiff);
+		static void addDays(uint8_t dayDiff);
+		static void addYears(uint16_t yearDiff);
+
+		//TinyGPSPlus object
+		TinyGPSPlus* gps;
 	public:
-    	GPSTimer(TinyGPSPlus* gps, uint8_t ppsPin);
+    	GPSTimer(TinyGPSPlus* gps);
 
 		void begin();
 		void update();
 
-		void enableWave();
-		void enableWave(uint8_t wavePin, uint16_t wavelength);
-		void disableWave();
+		static void attachPPS(uint8_t ppsPin);
+
+		static void enableWave();
+		static void enableWave(uint8_t wavePin, uint16_t wavelength);
+		static void disableWave();
+
+		static uint32_t totalCycles();
+		static uint32_t totalCycles(uint16_t timestamp);
+		static void calibrateSecond();
+		static void calibrateSecond(uint32_t microsPerSecond);
+		static void nextWaveInterrupt();
+
+		static void setWaveState(bool waveState);
+		static bool getWaveState();
+		static bool getWaveEnabled();
+		static void setOvfCount(uint16_t ovfCount);
+		static uint16_t getOvfCount();
+		static bool getUpdateFlag();
+		static void setHalfPulseCount(uint16_t halfPulseCount);
+		static void setPPSActive(bool ppsActive);
 		
 		uint16_t year();
 		uint8_t month();

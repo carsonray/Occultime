@@ -26,12 +26,14 @@ SoftwareSerial ss(Rx, Tx);
 TinyGPSPlus gps;
 
 //GPS timer object
-GPSTimer timer = GPSTimer(&gps, ppsPin);
+GPSTimer timer = GPSTimer(&gps);
 
 void setup() {
   Serial.begin(115200);
   ss.begin(9600);
-  timer.enableWave(tonePin, realFreq);
+  GPSTimer::attachPPS(ppsPin);
+  GPSTimer::enableWave(tonePin, realFreq);
+  timer.begin();
 }
 
 void loop() {

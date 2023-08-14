@@ -6,11 +6,30 @@
 #include <Arduino.h>
 #include "GPSTimer.h"
 
+//Initializes static members
+uint8_t GPSTimer::ppsPin = 2;
+bool GPSTimer::ppsActive = false;
+uint8_t GPSTimer::wavePin = 5;
+bool GPSTimer::waveEnabled = false;
+uint16_t GPSTimer::frequency = 1;
+bool GPSTimer::waveState = false;
+uint16_t GPSTimer::ovfCount = 0;
+uint16_t GPSTimer::halfPulseCount = 0;
+uint32_t GPSTimer::cyclesPerSecond = 16000000;
+bool GPSTimer::calibrateFlag = false;
+bool GPSTimer::updateFlag = false;
+uint8_t GPSTimer::currSecond = 0;
+uint16_t GPSTimer::years = 2000;
+uint8_t GPSTimer::months = 0;
+uint8_t GPSTimer::days = 0;
+uint8_t GPSTimer::monthDays[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+uint8_t GPSTimer::hours = 0;
+uint8_t GPSTimer::minutes = 0;
+uint8_t GPSTimer::seconds = 0;
+
 //Attaches gps object
-GPSTimer::GPSTimer(TinyGPSPlus* gps, uint8_t ppsPin) {
+GPSTimer::GPSTimer(TinyGPSPlus* gps) {
 	this->gps = gps;
-	this->ppsPin = ppsPin;
-	pinMode(ppsPin, INPUT);
 }
 
 //Initializes timer and interrupts
@@ -51,13 +70,19 @@ void GPSTimer::update() {
 	}
 }
 
+//Attaches pps pin
+void GPSTimer::attachPPS(uint8_t ppsPin) {
+	GPSTimer::ppsPin = ppsPin;
+	pinMode(ppsPin, INPUT);
+}
+
 //Enables calibrated square wave output
 void GPSTimer::enableWave() {
 	waveEnabled = true;
 }
 void GPSTimer::enableWave(uint8_t wavePin, uint16_t frequency) {
-	this->wavePin = wavePin;
-	this->frequency = frequency;
+	GPSTimer::wavePin = wavePin;
+	GPSTimer::frequency = frequency;
 
 	//Raises square wave flag
 	waveEnabled = true;
@@ -98,7 +123,7 @@ void GPSTimer::calibrateSecond(uint32_t cyclesPerSecond) {
 	//Only calibrates if two PPS signals are received
 	if (calibrateFlag) {
 		//Gets error in microseconds every second
-		this->cyclesPerSecond = cyclesPerSecond;
+		GPSTimer::cyclesPerSecond = cyclesPerSecond;
 
 		//Sets update flag
 		updateFlag = true;
@@ -118,6 +143,38 @@ void GPSTimer::nextWaveInterrupt() {
 
 	//Sets interrupt point at next half pulse
 	OCR1A = (cyclesPerSecond*halfPulseCount/(frequency*2)) % 65536;
+}
+
+void GPSTimer::setWaveState(boolean waveState) {
+	GPSTimer::waveState = waveState;
+}
+
+boolean GPSTimer::getWaveState() {
+	return waveState;
+}
+
+boolean GPSTimer::getWaveEnabled() {
+	return waveEnabled;
+}
+
+void GPSTimer::setOvfCount(uint16_t ovfCount) {
+	GPSTimer::ovfCount = ovfCount;
+}
+
+uint16_t GPSTimer::getOvfCount() {
+	return ovfCount;
+}
+
+boolean GPSTimer::getUpdateFlag() {
+	return updateFlag;
+}
+
+void GPSTimer::setHalfPulseCount(uint16_t halfPulseCount) {
+	GPSTimer::halfPulseCount = halfPulseCount;
+}
+
+void GPSTimer::setPPSActive(boolean ppsActive) {
+	GPSTimer::ppsActive = ppsActive;
 }
 
 void GPSTimer::setTime() {
@@ -237,40 +294,41 @@ ISR(TIMER1_CAPT_vect) {
 	TCNT1 = 0;
 
 	//Calibrates second
-	calibrateSecond(totalCycles(ICR1));
+	GPSTimer::calibrateSecond(GPSTimer::totalCycles(ICR1));
 
 	//Updates sqaure wave
-	if (waveEnabled && updateFlag) {
+	if (GPSTimer::getWaveEnabled() && GPSTimer::getUpdateFlag()) {
 		//Enables COMPA interrupt
 		TIMSK1 |= B00000010;
 		
 		//Starts new square wave
-		waveState = true;
-		halfPulseCount = 0;
-		nextWaveInterrupt();
+		GPSTimer::setWaveState(true);
+		GPSTimer::setHalfPulseCount(0);
+		GPSTimer::nextWaveInterrupt();
 	} else {
 		//Disables COMPA interrupt
 		TIMSK1 &= B11111101;
 	}
 
 	//Resets overflow counter
-	ovfCount = 0;
+	GPSTimer::setOvfCount(0);
 
 	//Raises pps active flag
-	ppsActive = true;
+	GPSTimer::setPPSActive(true);
 
 	sei();
 }
 
 ISR(TIMER1_COMPA_vect) {
-	if (waveEnabled) {
-		waveState = !waveState;
-		nextWaveInterrupt();
+	if (GPSTimer::getWaveEnabled()) {
+		GPSTimer::setWaveState(!GPSTimer::getWaveState());
+		GPSTimer::nextWaveInterrupt();
 	}
 }
 
 ISR(TIMER1_OVF_vect) {
-	ovfCount++;
+	Serial.println("ovf");
+	GPSTimer::setOvfCount(GPSTimer::getOvfCount() + 1);
 }
 
 

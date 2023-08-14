@@ -20,11 +20,13 @@ SoftwareSerial ss(Rx, Tx);
 TinyGPSPlus gps;
 
 //GPS timer object
-GPSTimer timer = GPSTimer(&gps, ppsPin);
+GPSTimer timer = GPSTimer(&gps);
 
 void setup() {
   Serial.begin(115200);
   ss.begin(9600);
+  GPSTimer::attachPPS(ppsPin);
+  timer.begin();
 }
 
 void loop() {
