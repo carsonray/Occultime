@@ -30,7 +30,7 @@ void GPSTimer::begin() {
 //Calibrates timing using GPS
 void GPSTimer::update() {
 	//If PPS is active, only do expensive time check after calibration
-	if ((!ppsActive || (timerCount < 4000000)) && (gps->time.second() != currSecond)) {
+	if ((!ppsActive || (totalCycles() < 4000000)) && (gps->time.second() != currSecond)) {
 		//Calibrates on GPS time update without satellites
 		if (!ppsActive) {
 			calibrateSecond();
@@ -70,7 +70,7 @@ void GPSTimer::disableWave() {
 
 //Gets total clock cycles since last second
 uint32_t GPSTimer::totalCycles() {
-	return totalCycles(timer1Val);
+	return totalCycles(TCNT1);
 }
 
 //Gets total clock cycles based on timestamp
@@ -88,14 +88,17 @@ uint32_t GPSTimer::adjustedMicros() {
 }
 
 //Calculates error in Arduino clock every second
-void GPSTimer::calibrateSecond(uint32_t microsPerSecond) {
+void GPSTimer::calibrateSecond() {
+	calibrateSecond(totalCycles());
+}
+void GPSTimer::calibrateSecond(uint32_t cyclesPerSecond) {
 	//Increments seconds
 	addSeconds(1);
 
 	//Only calibrates if two PPS signals are received
 	if (calibrateFlag) {
 		//Gets error in microseconds every second
-		this->microsPerSecond = microsPerSecond;
+		this->cyclesPerSecond = cyclesPerSecond;
 
 		//Sets update flag
 		updateFlag = true;
@@ -210,14 +213,9 @@ uint32_t GPSTimer::microsecond() {
 	return (microTime < 1000000) ? microTime : 999999;
 }
 
-uint32_t GPSTimer::getMicrosPerSecond() {
+uint32_t GPSTimer::getCyclesPerSecond() {
 	updateFlag = false;
-	return microsPerSecond;
-}
-
-int32_t GPSTimer::getSecondError() {
-	updateFlag = false;
-	return secondError;
+	return cyclesPerSecond;
 }
 
 //Whether calibration has been updated since last query

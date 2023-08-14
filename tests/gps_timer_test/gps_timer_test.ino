@@ -51,10 +51,8 @@ void loop() {
   } else {
     Serial.println();
   }
-  Serial.print("us per Second: ");
-  Serial.println(timer.getMicrosPerSecond());
-  Serial.print("Second Error: ");
-  Serial.println(timer.getSecondError());
+  Serial.print("Cycles per Second: ");
+  Serial.println(timer.getCyclesPerSecond());
 
   //Notifies if GPS data not recieved
   if (millis() > 500 && gps.charsProcessed() < 10)

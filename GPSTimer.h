@@ -66,6 +66,7 @@ class GPSTimer {
 		uint32_t totalCycles();
 		uint32_t totalCycles(uint16_t timestamp);
 		uint32_t adjustedMicros();
+		void calibrateSecond();
 		void calibrateSecond(uint32_t microsPerSecond);
 		void nextWaveInterrupt();
 
@@ -95,8 +96,7 @@ class GPSTimer {
 		uint8_t second();
 		uint32_t microsecond();
 
-		uint32_t getMicrosPerSecond();
-		int32_t getSecondError();
+		uint32_t getCyclesPerSecond();
 
 		bool isUpdated();
 		bool isPPSActive();
