@@ -15,7 +15,7 @@
 #define tonePin 13
 
 //Real frequency
-#define realFreq 5000
+#define realFreq 2000
 
 //TinyGPSPlus object
 TinyGPSPlus gps;
@@ -31,7 +31,12 @@ void setup() {
 }
 
 void loop() {
+  /*Serial.print("Cycles: ");
   Serial.println(timer.getCyclesPerSecond());
+  Serial.print("Length: ");
+  Serial.println(timer.getPulseLength());
+  Serial.print("Error: ");
+  Serial.println(timer.getPulseLengthError());*/
   updateDelay(500);
 }
 

@@ -30,16 +30,28 @@ class GPSTimer {
 		static uint16_t ovfCount;
 
 		//Counts square wave half-pulses
-		static uint32_t halfPulseCount;
+		static uint32_t pulseCount;
+
+		//Stamps first pps signal
+		static uint16_t ppsStamp;
 
 		//Average Arduino clock cycles per real second
 		static uint32_t cyclesPerSecond;
+
+		//Base pulseLength (clock cycles)
+		static uint16_t pulseLength;
+
+		//pulseLength error every 2^24 clock cycles
+		static uint16_t pulseLengthError;
 
 		//Flag to begin calibration
 		static bool calibrateFlag;
 
 		//Flag when data is updated
 		static bool updateFlag;
+
+		//Flag to calculate error
+		static bool calcFlag;
 
 		//Date
 		static uint16_t years;
@@ -58,6 +70,8 @@ class GPSTimer {
 
 		void setTime();
 
+		static void calibrateWave();
+
 		static void addSeconds(uint8_t secondDiff);
 		static void addMinutes(uint8_t minuteDiff);
 		static void addHours(uint8_t hourDiff);
@@ -73,7 +87,7 @@ class GPSTimer {
 		void update();
 
 		static void enableWave();
-		static void enableWave(uint8_t wavePin, uint16_t wavelength);
+		static void enableWave(uint8_t wavePin, uint16_t pulseLength);
 		static void disableWave();
 
 		static uint32_t totalCycles();
@@ -87,8 +101,9 @@ class GPSTimer {
 		static bool getWaveEnabled();
 		static void setOvfCount(uint16_t ovfCount);
 		static uint16_t getOvfCount();
-		static void setHalfPulseCount(uint32_t halfPulseCount);
+		static void setPulseCount(uint32_t pulseCount);
 		static void setPPSActive(bool ppsActive);
+		static void setPPSStamp(uint16_t ppsStamp);
 		
 		uint16_t year();
 		uint8_t month();
@@ -100,6 +115,8 @@ class GPSTimer {
 		uint32_t microsecond();
 
 		uint32_t getCyclesPerSecond();
+		uint16_t getPulseLength();
+		uint16_t getPulseLengthError();
 
 		bool isUpdated();
 		bool isPPSActive();
