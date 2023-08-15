@@ -1,5 +1,4 @@
 #include <TinyGPSPlus.h>
-#include <SoftwareSerial.h>
 #include <GPSTimer.h>
 
 /*
@@ -12,9 +11,6 @@
 
 //PPS attacted to input capture pin 8
 
-//Serial connection object
-SoftwareSerial ss(Rx, Tx);
-
 //TinyGPSPlus object
 TinyGPSPlus gps;
 
@@ -23,7 +19,7 @@ GPSTimer timer = GPSTimer(&gps);
 
 void setup() {
   Serial.begin(115200);
-  ss.begin(9600);
+  sssBegin();
   timer.begin();
 }
 
@@ -67,9 +63,9 @@ static void updateDelay(uint32_t ms)
   uint32_t start = millis();
   do
   {
-    while (ss.available())
+    while (sssAvailable())
       //Feeds gps object
-      gps.encode(ss.read());
+      gps.encode(sssRead());
 
       //Updates timer object
       timer.update();

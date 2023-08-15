@@ -87,7 +87,6 @@ class GPSTimer {
 		static bool getWaveEnabled();
 		static void setOvfCount(uint16_t ovfCount);
 		static uint16_t getOvfCount();
-		static bool getUpdateFlag();
 		static void setHalfPulseCount(uint32_t halfPulseCount);
 		static void setPPSActive(bool ppsActive);
 		

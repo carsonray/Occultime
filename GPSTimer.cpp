@@ -37,8 +37,9 @@ void GPSTimer::begin() {
 	
 	TCCR1A = 0;           // Init Timer1A
   	TCCR1B = 0;           // Init Timer1B
-  	TCCR1B |= B11000001;  // Internal Clock, Prescaler = 1, ICU Pin RISING
-  	TIMSK1 |= B00100001;  // Enable Timer CAPT and OVF Interrupts
+  	TCCR1B |= B11000001;  // Internal Clock, Prescaler = 1, ICU Noise Filter, ICU Pin RISING
+  	TIMSK1 |= B00100011;  // Enable Timer CAPT, COMPA, and OVF Interrupts
+	OCR1A = 0;
 
 	//Enables interrupts
 	sei();
@@ -138,7 +139,7 @@ void GPSTimer::nextWaveInterrupt() {
 	halfPulseCount++;
 
 	//Sets interrupt point at next half pulse
-	OCR1A = (cyclesPerSecond*halfPulseCount/(frequency*2)) % 65536;
+	OCR1A = (uint16_t) (((uint64_t) cyclesPerSecond)*halfPulseCount/(frequency*2));
 }
 
 void GPSTimer::setWaveState(bool waveState) {
@@ -159,10 +160,6 @@ void GPSTimer::setOvfCount(uint16_t ovfCount) {
 
 uint16_t GPSTimer::getOvfCount() {
 	return ovfCount;
-}
-
-boolean GPSTimer::getUpdateFlag() {
-	return updateFlag;
 }
 
 void GPSTimer::setHalfPulseCount(uint32_t halfPulseCount) {
@@ -293,17 +290,11 @@ ISR(TIMER1_CAPT_vect) {
 	GPSTimer::calibrateSecond(GPSTimer::totalCycles(ICR1));
 
 	//Updates sqaure wave
-	if (GPSTimer::getWaveEnabled() && GPSTimer::getUpdateFlag()) {
-		//Enables COMPA interrupt
-		TIMSK1 |= B00000010;
-		
+	if (GPSTimer::getWaveEnabled()) {
 		//Starts new square wave
 		GPSTimer::setWaveState(true);
 		GPSTimer::setHalfPulseCount(0);
 		GPSTimer::nextWaveInterrupt();
-	} else {
-		//Disables COMPA interrupt
-		TIMSK1 &= B11111101;
 	}
 
 	//Resets overflow counter

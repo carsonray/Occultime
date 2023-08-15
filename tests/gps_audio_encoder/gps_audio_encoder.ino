@@ -1,5 +1,4 @@
 #include <TinyGPSPlus.h>
-#include <SoftwareSerial.h>
 #include <GPSTimer.h>
 
 /*
@@ -7,19 +6,16 @@
 */
 
 //Serial settings
-#define Rx 8
-#define Tx 9
+#define Rx 4
+#define Tx 3
 
 //PPS attacted to input capture pin 8
 
 //Tone pin
-#define tonePin 5
+#define tonePin 13
 
 //Real frequency
-#define realFreq 2000
-
-//Serial connection object
-SoftwareSerial ss(Rx, Tx);
+#define realFreq 5000
 
 //TinyGPSPlus object
 TinyGPSPlus gps;
@@ -29,17 +25,26 @@ GPSTimer timer = GPSTimer(&gps);
 
 void setup() {
   Serial.begin(115200);
-  ss.begin(9600);
-  GPSTimer::attachPPS(ppsPin);
+  sssBegin();
   GPSTimer::enableWave(tonePin, realFreq);
   timer.begin();
 }
 
 void loop() {
-  while (ss.available())
-      //Feeds gps object
-      gps.encode(ss.read());
+  Serial.println(timer.getCyclesPerSecond());
+  updateDelay(500);
+}
 
-  //Updates timer object
-  timer.update();
+static void updateDelay(uint32_t ms)
+{
+  uint32_t start = millis();
+  do
+  {
+    while (sssAvailable())
+      //Feeds gps object
+      gps.encode(sssRead());
+
+      //Updates timer object
+      timer.update();
+  } while (millis() - start < ms);
 }
