@@ -15,7 +15,7 @@
 #define tonePin 13
 
 //Real frequency
-#define realFreq 2000
+#define realFreq 500
 
 //TinyGPSPlus object
 TinyGPSPlus gps;

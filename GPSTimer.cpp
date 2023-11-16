@@ -21,6 +21,11 @@ uint16_t GPSTimer::pulseLengthError = 0;
 bool GPSTimer::calibrateFlag = false;
 bool GPSTimer::updateFlag = false;
 bool GPSTimer::calcFlag = false;
+uint8_t GPSTimer::dataPin = 6;
+bool GPSTimer::dataEnabled = false;
+uint64_t GPSTimer::dataBuffer = 0;
+uint8_t GPSTimer::dataOpen = 0;
+uint8_t GPSTimer::dataType = 6;
 uint16_t GPSTimer::years = 2000;
 uint8_t GPSTimer::months = 0;
 uint8_t GPSTimer::days = 0;
@@ -93,7 +98,7 @@ void GPSTimer::enableWave(uint8_t wavePin, uint16_t frequency) {
 	GPSTimer::frequency = frequency;
 
 	//Raises square wave flag
-	waveEnabled = true;
+	enableWave();
 
 	//Calibrates wave parameters
 	calibrateWave();
@@ -102,6 +107,98 @@ void GPSTimer::enableWave(uint8_t wavePin, uint16_t frequency) {
 //Disables square wave output
 void GPSTimer::disableWave() {
 	waveEnabled = false;
+}
+
+//Updates wave signal parameters every second
+void GPSTimer::ppsEvent() {
+	//Calibrates second
+	calibrateSecond(totalCycles(ICR1));
+
+	//Stamps time
+	ppsStamp = ICR1;
+
+	//Updates sqaure wave
+	if (waveEnabled && ppsActive) {
+		//Starts new square wave
+		waveState = true;
+		pulseCount = 0;
+		GPSTimer::nextWaveInterrupt();
+	}
+
+	//Resets overflow counter
+	ovfCount = 0;
+
+	//Raises pps active flag
+	ppsActive = true;
+
+	//Starts sending new time and location data
+	GPSTimer::resetData();
+}
+
+//Sends wave signal
+void GPSTimer::sendWave() {
+	waveState = !waveState;
+	nextWaveInterrupt();
+}
+
+//Enables serial time and location output every second synchronized with square wave
+void GPSTimer::enableData() {
+	enableWave();
+	dataEnabled = true;
+}
+void GPSTimer::enableData(uint8_t dataPin) {
+	//Sets output pin
+	GPSTimer::dataPin = dataPin;
+
+	//Raises wave and data flags
+	enableData();
+
+	//Calibrates wave parameters
+	calibrateWave();
+}
+
+//Disables data output
+void GPSTimer::disableData() {
+	dataEnabled = false;
+}
+
+//Sends bit from data buffer
+void GPSTimer::sendDataBit() {
+	//If there is a data bit available
+	if (dataOpen < sizeof(dataBuffer)) {
+		//Writes least signficant bit to data pin
+		digitalWrite(dataPin, bitRead(dataBuffer, 0));
+		//Shifts out least significant bit and adds to open data
+		dataBuffer = dataBuffer >> 1;
+		dataOpen++;
+	} else if (dataType < 6) {
+		//Adds next data type to buffer
+		switch(dataType) {
+			case 0:
+				dataBuffer = gps.location.lat();
+				break;
+			case 1:
+				dataBuffer = gps.location.long();
+				break;
+			case 2:
+				dataBuffer = year();
+				break;
+			case 3:
+				dataBuffer = month() << 8 + day();
+				break;
+			case 4:
+				dataBuffer = hour() << 8 + minute();
+				break;
+			case 5:
+				dataBuffer = second();
+				break;
+		}
+		dataType++;
+	}
+}
+
+void GPSTimer::resetData() {
+	dataType = 0;
 }
 
 //Calibrates pulseLength and error from cyclesPerSecond
@@ -165,36 +262,16 @@ void GPSTimer::nextWaveInterrupt() {
 	OCR1A = (uint16_t) (pulseLength*pulseCount + (pulseLengthError*pulseCount)/(frequency*2));
 }
 
-void GPSTimer::setWaveState(bool waveState) {
-	GPSTimer::waveState = waveState;
-}
-
-boolean GPSTimer::getWaveState() {
-	return waveState;
-}
-
 boolean GPSTimer::getWaveEnabled() {
 	return waveEnabled;
 }
 
-void GPSTimer::setOvfCount(uint16_t ovfCount) {
-	GPSTimer::ovfCount = ovfCount;
+boolean GPSTimer::getDataEnabled() {
+	return waveEnabled;
 }
 
-uint16_t GPSTimer::getOvfCount() {
-	return ovfCount;
-}
-
-void GPSTimer::setPulseCount(uint32_t pulseCount) {
-	GPSTimer::pulseCount = pulseCount;
-}
-
-void GPSTimer::setPPSActive(bool ppsActive) {
-	GPSTimer::ppsActive = ppsActive;
-}
-
-void GPSTimer::setPPSStamp(uint16_t ppsStamp) {
-	GPSTimer::ppsStamp = ppsStamp;
+void GPSTimer::incrementOvf() {
+	ovfCount++;
 }
 
 void GPSTimer::setTime() {
@@ -317,39 +394,21 @@ bool GPSTimer::isPPSActive() {
 //Checks for rising edge of PPS signal
 ISR(TIMER1_CAPT_vect) {
 	cli();
-
-	//Calibrates second
-	GPSTimer::calibrateSecond(GPSTimer::totalCycles(ICR1));
-
-	//Stamps time
-	GPSTimer::setPPSStamp(ICR1);
-
-	//Updates sqaure wave
-	if (GPSTimer::getWaveEnabled()) {
-		//Starts new square wave
-		GPSTimer::setWaveState(true);
-		GPSTimer::setPulseCount(0);
-		GPSTimer::nextWaveInterrupt();
-	}
-
-	//Resets overflow counter
-	GPSTimer::setOvfCount(0);
-
-	//Raises pps active flag
-	GPSTimer::setPPSActive(true);
-
+	GPSTimer::ppsEvent();
 	sei();
 }
 
 ISR(TIMER1_COMPA_vect) {
-	if (GPSTimer::getWaveEnabled()) {
-		GPSTimer::setWaveState(!GPSTimer::getWaveState());
-		GPSTimer::nextWaveInterrupt();
+	if (GPSTimer::getWaveEnabled() && GPSTimer::isPPSActive()) {
+		GPSTimer::sendWave();
+		if (GPSTimer::getDataEnabled()) {
+			GPSTimer::sendDataBit();
+		}
 	}
 }
 
 ISR(TIMER1_OVF_vect) {
-	GPSTimer::setOvfCount(GPSTimer::getOvfCount() + 1);
+	GPSTimer::incrementOvf();
 }
 
 

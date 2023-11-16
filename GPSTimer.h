@@ -53,6 +53,21 @@ class GPSTimer {
 		//Flag to calculate error
 		static bool calcFlag;
 
+		//Pin for data transmission
+		static uint8_t dataPin;
+
+		//Flag when data transmission is enabled
+		static bool dataEnabled;
+
+		//Data transmission buffer
+		static uint16_t dataBuffer;
+
+		//Open space in data buffer
+		static uint8_t dataOpen;
+
+		//Current data type
+		static uint8_t dataType;
+
 		//Date
 		static uint16_t years;
 		static uint8_t months;
@@ -89,6 +104,14 @@ class GPSTimer {
 		static void enableWave();
 		static void enableWave(uint8_t wavePin, uint16_t pulseLength);
 		static void disableWave();
+		static void ppsEvent();
+		static void sendWave();
+
+		static void enableData();
+		static void enableData(uint8_t dataPin);
+		static void disableData();
+		static void sendDataBit();
+		static void resetData();
 
 		static uint32_t totalCycles();
 		static uint32_t totalCycles(uint32_t timestamp);
@@ -96,14 +119,9 @@ class GPSTimer {
 		static void calibrateSecond(uint32_t microsPerSecond);
 		static void nextWaveInterrupt();
 
-		static void setWaveState(bool waveState);
-		static bool getWaveState();
 		static bool getWaveEnabled();
-		static void setOvfCount(uint16_t ovfCount);
-		static uint16_t getOvfCount();
-		static void setPulseCount(uint32_t pulseCount);
-		static void setPPSActive(bool ppsActive);
-		static void setPPSStamp(uint16_t ppsStamp);
+		static bool getDataEnabled();
+		static void incrementOvf();
 		
 		uint16_t year();
 		uint8_t month();
