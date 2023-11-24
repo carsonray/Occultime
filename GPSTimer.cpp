@@ -25,7 +25,7 @@ uint8_t GPSTimer::dataPin = 6;
 bool GPSTimer::dataEnabled = false;
 uint64_t GPSTimer::dataBuffer = 0;
 uint8_t GPSTimer::dataOpen = 0;
-uint8_t GPSTimer::dataType = 6;
+uint8_t GPSTimer::dataType = 3;
 uint16_t GPSTimer::years = 2000;
 uint8_t GPSTimer::months = 0;
 uint8_t GPSTimer::days = 0;
@@ -33,10 +33,11 @@ uint8_t GPSTimer::monthDays[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 3
 uint8_t GPSTimer::hours = 0;
 uint8_t GPSTimer::minutes = 0;
 uint8_t GPSTimer::seconds = 0;
+TinyGPSPlus* GPSTimer::gps;
 
 //Attaches gps object
-GPSTimer::GPSTimer(TinyGPSPlus* gps) {
-	this->gps = gps;
+void GPSTimer::setGPS(TinyGPSPlus* gps) {
+	GPSTimer::gps = gps;
 }
 
 //Initializes timer and interrupts
@@ -171,26 +172,17 @@ void GPSTimer::sendDataBit() {
 		//Shifts out least significant bit and adds to open data
 		dataBuffer = dataBuffer >> 1;
 		dataOpen++;
-	} else if (dataType < 6) {
+	} else if (dataType < 3) {
 		//Adds next data type to buffer
 		switch(dataType) {
 			case 0:
-				dataBuffer = gps.location.lat();
+				dataBuffer = gps->location.lat();
 				break;
 			case 1:
-				dataBuffer = gps.location.long();
+				dataBuffer = gps->location.lng();
 				break;
 			case 2:
-				dataBuffer = year();
-				break;
-			case 3:
-				dataBuffer = month() << 8 + day();
-				break;
-			case 4:
-				dataBuffer = hour() << 8 + minute();
-				break;
-			case 5:
-				dataBuffer = second();
+				dataBuffer = year()<<40+month()<<32+day()<<24+hour()<<16+minute()<<8+second();
 				break;
 		}
 		dataType++;

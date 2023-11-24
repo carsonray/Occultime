@@ -60,7 +60,7 @@ class GPSTimer {
 		static bool dataEnabled;
 
 		//Data transmission buffer
-		static uint16_t dataBuffer;
+		static uint64_t dataBuffer;
 
 		//Open space in data buffer
 		static uint8_t dataOpen;
@@ -81,9 +81,9 @@ class GPSTimer {
 		static uint8_t minutes;
 		static uint8_t seconds;
 
-		uint32_t adjustedMicros();
+		static uint32_t adjustedMicros();
 
-		void setTime();
+		static void setTime();
 
 		static void calibrateWave();
 
@@ -94,12 +94,12 @@ class GPSTimer {
 		static void addYears(uint16_t yearDiff);
 
 		//TinyGPSPlus object
-		TinyGPSPlus* gps;
+		static TinyGPSPlus* gps;
 	public:
-    	GPSTimer(TinyGPSPlus* gps);
+    	static void setGPS(TinyGPSPlus* gps);
 
-		void begin();
-		void update();
+		static void begin();
+		static void update();
 
 		static void enableWave();
 		static void enableWave(uint8_t wavePin, uint16_t pulseLength);
@@ -123,21 +123,21 @@ class GPSTimer {
 		static bool getDataEnabled();
 		static void incrementOvf();
 		
-		uint16_t year();
-		uint8_t month();
-		uint8_t day();
+		static uint16_t year();
+		static uint8_t month();
+		static uint8_t day();
 
-		uint8_t hour();
-		uint8_t minute();
-		uint8_t second();
-		uint32_t microsecond();
+		static uint8_t hour();
+		static uint8_t minute();
+		static uint8_t second();
+		static uint32_t microsecond();
 
-		uint32_t getCyclesPerSecond();
-		uint16_t getPulseLength();
-		uint16_t getPulseLengthError();
+		static uint32_t getCyclesPerSecond();
+		static uint16_t getPulseLength();
+		static uint16_t getPulseLengthError();
 
-		bool isUpdated();
-		bool isPPSActive();
+		static bool isUpdated();
+		static bool isPPSActive();
 };
 
 #endif

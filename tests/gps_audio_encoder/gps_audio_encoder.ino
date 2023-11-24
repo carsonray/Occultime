@@ -20,14 +20,12 @@
 //TinyGPSPlus object
 TinyGPSPlus gps;
 
-//GPS timer object
-GPSTimer timer = GPSTimer(&gps);
-
 void setup() {
   Serial.begin(115200);
   sssBegin();
+  GPSTimer::setGPS(&gps);
   GPSTimer::enableWave(tonePin, realFreq);
-  timer.begin();
+  GPSTimer::begin();
 }
 
 void loop() {
@@ -49,7 +47,7 @@ static void updateDelay(uint32_t ms)
       //Feeds gps object
       gps.encode(sssRead());
 
-      //Updates timer object
-      timer.update();
+      //Updates timer
+      GPSTimer::update();
   } while (millis() - start < ms);
 }
