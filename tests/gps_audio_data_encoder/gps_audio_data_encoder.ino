@@ -3,6 +3,7 @@
 
 /*
   Encodes GPS time into square wave audio tone
+  Transmits serial data about time and location
 */
 
 //Serial settings
@@ -12,7 +13,10 @@
 //PPS attacted to input capture pin 8
 
 //Tone pin
-#define tonePin 13
+#define tonePin 12
+
+//Data pin
+#define dataPin 13
 
 //Real frequency
 #define realFreq 500
@@ -25,16 +29,19 @@ void setup() {
   sssBegin();
   GPSTimer::setGPS(&gps);
   GPSTimer::enableWave(tonePin, realFreq);
+  GPSTimer::enableData(dataPin);
   GPSTimer::begin();
 }
 
 void loop() {
+  /*
   Serial.print("Cycles: ");
   Serial.println(GPSTimer::getCyclesPerSecond());
   Serial.print("Length: ");
   Serial.println(GPSTimer::getPulseLength());
   Serial.print("Error: ");
   Serial.println(GPSTimer::getPulseLengthError());
+  */
   updateDelay(500);
 }
 

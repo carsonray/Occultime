@@ -62,8 +62,8 @@ class GPSTimer {
 		//Data transmission buffer
 		static uint64_t dataBuffer;
 
-		//Open space in data buffer
-		static uint8_t dataOpen;
+		//Remaining data in data buffer
+		static uint8_t dataRemaining;
 
 		//Current data type
 		static uint8_t dataType;

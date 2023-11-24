@@ -16,7 +16,7 @@ uint16_t GPSTimer::ovfCount = 0;
 uint32_t GPSTimer::pulseCount = 0;
 uint16_t GPSTimer::ppsStamp = 0;
 uint32_t GPSTimer::cyclesPerSecond = 16000000;
-uint16_t GPSTimer:: pulseLength = 0;
+uint16_t GPSTimer::pulseLength = 0;
 uint16_t GPSTimer::pulseLengthError = 0;
 bool GPSTimer::calibrateFlag = false;
 bool GPSTimer::updateFlag = false;
@@ -24,8 +24,8 @@ bool GPSTimer::calcFlag = false;
 uint8_t GPSTimer::dataPin = 6;
 bool GPSTimer::dataEnabled = false;
 uint64_t GPSTimer::dataBuffer = 0;
-uint8_t GPSTimer::dataOpen = 0;
-uint8_t GPSTimer::dataType = 3;
+uint8_t GPSTimer::dataRemaining = 0;
+uint8_t GPSTimer::dataType = 4;
 uint16_t GPSTimer::years = 2000;
 uint8_t GPSTimer::months = 0;
 uint8_t GPSTimer::days = 0;
@@ -166,25 +166,39 @@ void GPSTimer::disableData() {
 //Sends bit from data buffer
 void GPSTimer::sendDataBit() {
 	//If there is a data bit available
-	if (dataOpen < sizeof(dataBuffer)) {
+	if (dataRemaining > 0) {
 		//Writes least signficant bit to data pin
 		digitalWrite(dataPin, bitRead(dataBuffer, 0));
 		//Shifts out least significant bit and adds to open data
 		dataBuffer = dataBuffer >> 1;
-		dataOpen++;
-	} else if (dataType < 3) {
+		dataRemaining--;
+	} else if (dataType < 4) {
 		//Adds next data type to buffer
 		switch(dataType) {
 			case 0:
-				dataBuffer = gps->location.lat();
+				//Start bit
+				dataBuffer = 1;
+				dataRemaining = 1;
 				break;
 			case 1:
-				dataBuffer = gps->location.lng();
+				dataBuffer = gps->location.lat();
+				dataRemaining = 64;
 				break;
 			case 2:
+				dataBuffer = gps->location.lng();
+				dataRemaining = 64;
+				break;
+			case 3:
+				//Time information
 				dataBuffer = year()<<40+month()<<32+day()<<24+hour()<<16+minute()<<8+second();
+				dataRemaining = 56;
 				break;
 		}
+		
+		//Sends new bit
+		sendDataBit();
+
+		//Increments data type
 		dataType++;
 	}
 }
