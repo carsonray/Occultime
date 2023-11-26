@@ -25,7 +25,7 @@ uint8_t GPSTimer::dataPin = 6;
 bool GPSTimer::dataEnabled = false;
 uint64_t GPSTimer::dataBuffer = 0;
 uint8_t GPSTimer::dataRemaining = 0;
-uint8_t GPSTimer::dataType = 4;
+uint8_t GPSTimer::dataType = 3;
 uint32_t GPSTimer::lngBin;
 uint32_t GPSTimer::latBin;
 uint16_t GPSTimer::years = 2000;
@@ -173,46 +173,46 @@ void GPSTimer::disableData() {
 
 //Sends bit from data buffer
 void GPSTimer::sendDataBit() {
-	//If there is a data bit available
-	if (dataRemaining > 0) {
-		//Writes least signficant bit to data pin
-		digitalWrite(dataPin, bitRead(dataBuffer, 0));
-		//Shifts out least significant bit and adds to open data
-		dataBuffer = dataBuffer >> 1;
-		dataRemaining--;
-	} else if (dataType < 4) {
-		//Adds next data type to buffer
-		switch(dataType) {
-			case 0:
-				//Start bit
-				dataBuffer = 1;
-				dataRemaining = 1;
-				break;
-			case 1:
-				data.input = gps->location.lng();
-				lngBin = data.output;
-				data.input = gps->location.lat();
-				latBin = data.output;
-				dataBuffer = lngBin<<32+latBin;
-				dataRemaining = 64;
-				break;
-			case 2:
-				//Time information
-				dataBuffer = year()<<40+month()<<32+day()<<24+hour()<<16+minute()<<8+second();
-				dataRemaining = 56;
-				break;
-			case 3:
-				//End bit
-				dataBuffer = 1;
-				dataRemaining = 1;
-				break;
-		}
-		
-		//Sends new bit
-		sendDataBit();
+	//If wave state is on
+	if (waveState) {
+		//If there is a data bit available
+		if (dataRemaining > 0) {
+			//Writes least signficant bit to data pin
+			digitalWrite(dataPin, bitRead(dataBuffer, 0));
+			//Shifts out least significant bit and adds to open data
+			dataBuffer = dataBuffer >> 1;
+			dataRemaining--;
+		} else if (dataType < 3) {
+			//Adds next data type to buffer
+			switch(dataType) {
+				case 0:
+					//Start bit
+					dataBuffer = 1;
+					dataRemaining = 1;
+					break;
+				case 1:
+					data.input = gps->location.lng();
+					lngBin = data.output;
+					data.input = gps->location.lat();
+					latBin = data.output;
+					dataBuffer = lngBin<<32+latBin;
+					dataRemaining = 64;
+					break;
+				case 2:
+					//Time information
+					dataBuffer = 1<<56+year()<<40+month()<<32+day()<<24+hour()<<16+minute()<<8+second();
+					dataRemaining = 57;
+					break;
+			}
+			
+			//Sends new bit
+			sendDataBit();
 
-		//Increments data type
-		dataType++;
+			//Increments data type
+			dataType++;
+		}
+	} else {
+		digitalWrite(dataPin, false)
 	}
 }
 
