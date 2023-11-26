@@ -68,6 +68,10 @@ class GPSTimer {
 		//Current data type
 		static uint8_t dataType;
 
+		//GPS Latitude and Longitude binaries
+		static uint32_t lngBin;
+		static uint32_t latBin;
+
 		//Date
 		static uint16_t years;
 		static uint8_t months;

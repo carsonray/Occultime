@@ -26,6 +26,8 @@ bool GPSTimer::dataEnabled = false;
 uint64_t GPSTimer::dataBuffer = 0;
 uint8_t GPSTimer::dataRemaining = 0;
 uint8_t GPSTimer::dataType = 4;
+uint32_t GPSTimer::lngBin;
+uint32_t GPSTimer::latBin;
 uint16_t GPSTimer::years = 2000;
 uint8_t GPSTimer::months = 0;
 uint8_t GPSTimer::days = 0;
@@ -34,6 +36,12 @@ uint8_t GPSTimer::hours = 0;
 uint8_t GPSTimer::minutes = 0;
 uint8_t GPSTimer::seconds = 0;
 TinyGPSPlus* GPSTimer::gps;
+
+//Float to int converter
+union {
+	float input;
+	uint32_t output;
+} data;
 
 //Attaches gps object
 void GPSTimer::setGPS(TinyGPSPlus* gps) {
@@ -181,17 +189,22 @@ void GPSTimer::sendDataBit() {
 				dataRemaining = 1;
 				break;
 			case 1:
-				dataBuffer = gps->location.lat();
+				data.input = gps->location.lng();
+				lngBin = data.output;
+				data.input = gps->location.lat();
+				latBin = data.output;
+				dataBuffer = lngBin<<32+latBin;
 				dataRemaining = 64;
 				break;
 			case 2:
-				dataBuffer = gps->location.lng();
-				dataRemaining = 64;
-				break;
-			case 3:
 				//Time information
 				dataBuffer = year()<<40+month()<<32+day()<<24+hour()<<16+minute()<<8+second();
 				dataRemaining = 56;
+				break;
+			case 3:
+				//End bit
+				dataBuffer = 1;
+				dataRemaining = 1;
 				break;
 		}
 		
