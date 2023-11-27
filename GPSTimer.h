@@ -47,9 +47,6 @@ class GPSTimer {
 		//Flag to begin calibration
 		static bool calibrateFlag;
 
-		//Flag when data is updated
-		static bool updateFlag;
-
 		//Flag to calculate error
 		static bool calcFlag;
 
@@ -68,11 +65,15 @@ class GPSTimer {
 		//Current data type
 		static uint8_t dataType;
 
-		//GPS Latitude and Longitude binaries
+		//GPS latitude and longitude data
+		static bool locValid;
+		static float lat;
+		static float lng;
 		static uint32_t lngBin;
 		static uint32_t latBin;
 
 		//Date
+		static bool timeValid;
 		static uint16_t years;
 		static uint8_t months;
 		static uint8_t days;
@@ -87,7 +88,7 @@ class GPSTimer {
 
 		static uint32_t adjustedMicros();
 
-		static void setTime();
+		static void setGPSInfo();
 
 		static void calibrateWave();
 
@@ -140,8 +141,8 @@ class GPSTimer {
 		static uint16_t getPulseLength();
 		static uint16_t getPulseLengthError();
 
-		static bool isUpdated();
 		static bool isPPSActive();
+		static bool isTimeValid();
 };
 
 #endif

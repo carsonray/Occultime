@@ -19,15 +19,18 @@ uint32_t GPSTimer::cyclesPerSecond = 16000000;
 uint16_t GPSTimer::pulseLength = 0;
 uint16_t GPSTimer::pulseLengthError = 0;
 bool GPSTimer::calibrateFlag = false;
-bool GPSTimer::updateFlag = false;
 bool GPSTimer::calcFlag = false;
 uint8_t GPSTimer::dataPin = 6;
 bool GPSTimer::dataEnabled = false;
 uint64_t GPSTimer::dataBuffer = 0;
 uint8_t GPSTimer::dataRemaining = 0;
-uint8_t GPSTimer::dataType = 3;
+uint8_t GPSTimer::dataType = 4;
+bool GPSTimer::locValid = false;
+float GPSTimer::lat;
+float GPSTimer::lng;
 uint32_t GPSTimer::lngBin;
 uint32_t GPSTimer::latBin;
+bool GPSTimer::timeValid = false;
 uint16_t GPSTimer::years = 2000;
 uint8_t GPSTimer::months = 0;
 uint8_t GPSTimer::days = 0;
@@ -76,8 +79,8 @@ void GPSTimer::update() {
 			ovfCount = 0;
 		}
 
-		//Sets time
-		setTime();
+		//Sets gps information
+		setGPSInfo();
 	}
 
 	if (calcFlag) {
@@ -93,7 +96,6 @@ void GPSTimer::update() {
 
 		//Resets flags
 		calibrateFlag = false;
-		updateFlag = false;
 		ppsActive = false;
 	}
 }
@@ -178,11 +180,11 @@ void GPSTimer::sendDataBit() {
 		//If there is a data bit available
 		if (dataRemaining > 0) {
 			//Writes least signficant bit to data pin
-			digitalWrite(dataPin, bitRead(dataBuffer, 0));
+			digitalWrite(dataPin, dataBuffer & 1);
 			//Shifts out least significant bit and adds to open data
 			dataBuffer = dataBuffer >> 1;
 			dataRemaining--;
-		} else if (dataType < 3) {
+		} else if (dataType < 4) {
 			//Adds next data type to buffer
 			switch(dataType) {
 				case 0:
@@ -191,18 +193,33 @@ void GPSTimer::sendDataBit() {
 					dataRemaining = 1;
 					break;
 				case 1:
-					data.input = gps->location.lng();
-					lngBin = data.output;
-					data.input = gps->location.lat();
-					latBin = data.output;
-					dataBuffer = lngBin<<32+latBin;
+					if (locValid) {
+						dataBuffer = (uint64_t)((uint64_t)lngBin<<32)+(uint64_t)latBin;
+					} else {
+						dataBuffer = 0;
+					}
+
 					dataRemaining = 64;
 					break;
 				case 2:
 					//Time information
-					dataBuffer = 1<<56+year()<<40+month()<<32+day()<<24+hour()<<16+minute()<<8+second();
-					dataRemaining = 57;
+					if (timeValid) {
+						dataBuffer = (uint64_t)((uint64_t)year()<<40);
+						dataBuffer += (uint64_t)((uint64_t)month()<<32);
+						dataBuffer += (uint64_t)((uint64_t)day()<<24);
+						dataBuffer += (uint64_t)((uint64_t)hour()<<16);
+						dataBuffer += (uint64_t)((uint64_t)minute()<<8);
+						dataBuffer += (uint64_t)second();
+					} else {
+						dataBuffer = 0;
+					}
+
+					dataRemaining = 56;
 					break;
+				case 3:
+					//End bit
+					dataBuffer = 1;
+					dataRemaining = 1;
 			}
 			
 			//Sends new bit
@@ -212,7 +229,7 @@ void GPSTimer::sendDataBit() {
 			dataType++;
 		}
 	} else {
-		digitalWrite(dataPin, false)
+		digitalWrite(dataPin, false);
 	}
 }
 
@@ -258,9 +275,6 @@ void GPSTimer::calibrateSecond(uint32_t cyclesPerSecond) {
 		//Gets error in microseconds every second
 		GPSTimer::cyclesPerSecond = cyclesPerSecond;
 
-		//Sets update flag
-		updateFlag = true;
-
 		//Sets calculation flag
 		calcFlag = true;
 	}
@@ -293,14 +307,25 @@ void GPSTimer::incrementOvf() {
 	ovfCount++;
 }
 
-void GPSTimer::setTime() {
-	years = gps->date.year();
-	months = gps->date.month() - 1;
-	days = gps->date.day() - 1;
+void GPSTimer::setGPSInfo() {
+	//Time data
+	timeValid = true;//gps->time.isValid();
+	years = 2023;//gps->date.year();
+	months = 11;//gps->date.month() - 1;
+	days = 26;//gps->date.day() - 1;
 
-	hours = gps->time.hour();
-	minutes = gps->time.minute();
-	seconds = gps->time.second();
+	hours = 10;//gps->time.hour();
+	minutes = 1;//gps->time.minute();
+	seconds = 45;//gps->time.second();
+
+	//Location data
+	locValid = true;//gps->location.isValid();
+	lat = 12.345;//gps->location.lat();
+	lng = 65.432;//gps->location.lng();
+	data.input = lat;
+	latBin = data.output;
+	data.input = lng;
+	lngBin = data.output;
 }
 
 void GPSTimer::addSeconds(uint8_t secondDiff) {
@@ -352,42 +377,34 @@ void GPSTimer::addYears(uint16_t yearDiff) {
 }
 
 uint16_t GPSTimer::year() {
-	updateFlag = false;
 	return years;
 }
 
 uint8_t GPSTimer::month() {
-	updateFlag = false;
 	return months + 1;
 }
 
 uint8_t GPSTimer::day() {
-	updateFlag = false;
 	return days + 1;
 }
 
 uint8_t GPSTimer::hour() {
-	updateFlag = false;
 	return hours;
 }	
 
 uint8_t GPSTimer::minute() {
-	updateFlag = false;
 	return minutes;
 }
 
 uint8_t GPSTimer::second() {
-	updateFlag = false;
 	return seconds;
 }
 uint32_t GPSTimer::microsecond() {
-	updateFlag = false;
 	uint32_t microTime = adjustedMicros();
 	return (microTime < 1000000) ? microTime : 999999;
 }
 
 uint32_t GPSTimer::getCyclesPerSecond() {
-	updateFlag = false;
 	return cyclesPerSecond;
 }
 
@@ -399,15 +416,14 @@ uint16_t GPSTimer::getPulseLengthError() {
 	return pulseLengthError;
 }
 
-//Whether calibration has been updated since last query
-bool GPSTimer::isUpdated() {
-	return updateFlag;
-}
-
 //Whether PPS is active
 bool GPSTimer::isPPSActive() {
-	updateFlag = false;
 	return ppsActive;
+}
+
+//Whether time data is valid
+bool GPSTimer::isTimeValid() {
+	return timeValid;
 }
 
 //Checks for rising edge of PPS signal
@@ -418,7 +434,7 @@ ISR(TIMER1_CAPT_vect) {
 }
 
 ISR(TIMER1_COMPA_vect) {
-	if (GPSTimer::getWaveEnabled() && GPSTimer::isPPSActive()) {
+	if (GPSTimer::getWaveEnabled() && GPSTimer::isPPSActive() && GPSTimer::isTimeValid()) {
 		GPSTimer::sendWave();
 		if (GPSTimer::getDataEnabled()) {
 			GPSTimer::sendDataBit();

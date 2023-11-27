@@ -14,13 +14,10 @@
 //TinyGPSPlus object
 TinyGPSPlus gps;
 
-//GPS timer object
-GPSTimer timer = GPSTimer(&gps);
-
 void setup() {
   Serial.begin(115200);
   sssBegin();
-  timer.begin();
+  GPSTimer::begin();
 }
 
 void loop() {
@@ -32,7 +29,7 @@ void loop() {
   Serial.print("Date: ");
   if (gps.date.isValid()) {
     char buffer[32];
-    sprintf(buffer, "%02d/%02d/%02d", timer.month(), timer.day(), timer.year());
+    sprintf(buffer, "%02d/%02d/%02d", GPSTimer::month(), GPSTimer::day(), GPSTimer::year());
     Serial.println(buffer);
   } else {
     Serial.println();
@@ -42,13 +39,13 @@ void loop() {
   Serial.print("Time: ");
   if (gps.time.isValid()) {
     char buffer[32];
-    sprintf(buffer, "%02d:%02d:%02d:%06lu", timer.hour(), timer.minute(), timer.second(), timer.microsecond());
+    sprintf(buffer, "%02d:%02d:%02d:%06lu", GPSTimer::hour(), GPSTimer::minute(), GPSTimer::second(), GPSTimer::microsecond());
     Serial.println(buffer);
   } else {
     Serial.println();
   }
   Serial.print("Cycles per Second: ");
-  Serial.println(timer.getCyclesPerSecond());
+  Serial.println(GPSTimer::getCyclesPerSecond());
 
   //Notifies if GPS data not recieved
   if (millis() > 500 && gps.charsProcessed() < 10)
@@ -68,6 +65,6 @@ static void updateDelay(uint32_t ms)
       gps.encode(sssRead());
 
       //Updates timer object
-      timer.update();
+      GPSTimer::update();
   } while (millis() - start < ms);
 }
