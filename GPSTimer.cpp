@@ -25,6 +25,7 @@ bool GPSTimer::dataEnabled = false;
 uint64_t GPSTimer::dataBuffer = 0;
 uint8_t GPSTimer::dataRemaining = 0;
 uint8_t GPSTimer::dataType = 4;
+uint16_t GPSTimer::dataInterval = 1;
 bool GPSTimer::locValid = false;
 float GPSTimer::lat;
 float GPSTimer::lng;
@@ -175,8 +176,8 @@ void GPSTimer::disableData() {
 
 //Sends bit from data buffer
 void GPSTimer::sendDataBit() {
-	//If wave state is on
-	if (waveState) {
+	//If wave state is on and the full pulses is a multiple of the data interval
+	if (waveState && (pulseCount/2) % dataInterval == 0) {
 		//If there is a data bit available
 		if (dataRemaining > 0) {
 			//Writes least signficant bit to data pin
