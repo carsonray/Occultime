@@ -175,7 +175,7 @@ void GPSTimer::disableData() {
 
 //Sends bit from data buffer
 void GPSTimer::sendDataBit() {
-	//If wave state is on and the full pulses is a multiple of the data interval
+	//If wave state is on
 	if (waveState) {
 		//If there is a data bit available
 		if (dataRemaining > 0) {
@@ -204,17 +204,17 @@ void GPSTimer::sendDataBit() {
 				case 2:
 					//Time information
 					if (timeValid) {
-						dataBuffer = (uint64_t)((uint64_t)year()<<40);
-						dataBuffer += (uint64_t)((uint64_t)month()<<32);
-						dataBuffer += (uint64_t)((uint64_t)day()<<24);
-						dataBuffer += (uint64_t)((uint64_t)hour()<<16);
-						dataBuffer += (uint64_t)((uint64_t)minute()<<8);
+						dataBuffer = (uint64_t)((uint64_t)year()<<28);
+						dataBuffer += (uint64_t)((uint64_t)month()<<24);
+						dataBuffer += (uint64_t)((uint64_t)day()<<18);
+						dataBuffer += (uint64_t)((uint64_t)hour()<<12);
+						dataBuffer += (uint64_t)((uint64_t)minute()<<6);
 						dataBuffer += (uint64_t)second();
 					} else {
 						dataBuffer = 0;
 					}
 
-					dataRemaining = 56;
+					dataRemaining = 44;
 					break;
 				case 3:
 					//End bit
@@ -310,19 +310,19 @@ void GPSTimer::incrementOvf() {
 
 void GPSTimer::setGPSInfo() {
 	//Time data
-	timeValid = true;//gps->time.isValid();
-	years = 2023;//gps->date.year();
-	months = 11;//gps->date.month() - 1;
-	days = 26;//gps->date.day() - 1;
+	timeValid = gps->time.isValid();
+	years = gps->date.year();
+	months = gps->date.month();
+	days = gps->date.day();
 
-	hours = 10;//gps->time.hour();
-	minutes = 1;//gps->time.minute();
-	seconds = 45;//gps->time.second();
+	hours = gps->time.hour();
+	minutes = gps->time.minute();
+	seconds = gps->time.second();
 
 	//Location data
-	locValid = true;//gps->location.isValid();
-	lat = 12.345;//gps->location.lat();
-	lng = 65.432;//gps->location.lng();
+	locValid = gps->location.isValid();
+	lat = gps->location.lat();
+	lng = gps->location.lng();
 	data.input = lat;
 	latBin = data.output;
 	data.input = lng;
@@ -382,11 +382,11 @@ uint16_t GPSTimer::year() {
 }
 
 uint8_t GPSTimer::month() {
-	return months + 1;
+	return months;
 }
 
 uint8_t GPSTimer::day() {
-	return days + 1;
+	return days;
 }
 
 uint8_t GPSTimer::hour() {
