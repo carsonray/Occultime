@@ -65,6 +65,9 @@ class GPSTimer {
 		//Current data type
 		static uint8_t dataType;
 
+		//How often unique data bit is sent
+		static uint8_t dataInterval;
+
 		//GPS latitude and longitude data
 		static bool locValid;
 		static float lat;

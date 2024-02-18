@@ -6,8 +6,8 @@
 */
 
 //Serial settings
-#define Rx 4
-#define Tx 3
+#define Rx 3
+#define Tx 4
 
 //PPS attacted to input capture pin 8
 
@@ -17,6 +17,9 @@ TinyGPSPlus gps;
 void setup() {
   Serial.begin(115200);
   sssBegin();
+  GPSTimer::setGPS(&gps);
+  GPSTimer::enableWave(12, 150);
+  //GPSTimer::enableData(13);
   GPSTimer::begin();
 }
 

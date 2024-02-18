@@ -7,8 +7,8 @@
 */
 
 //Serial settings
-#define Rx 4
-#define Tx 3
+#define Rx 3
+#define Tx 4
 
 //PPS attacted to input capture pin 8
 
@@ -19,7 +19,7 @@
 #define dataPin 13
 
 //Real frequency
-#define realFreq 660
+#define realFreq 500
 
 //TinyGPSPlus object
 TinyGPSPlus gps;

@@ -25,6 +25,7 @@ bool GPSTimer::dataEnabled = false;
 uint64_t GPSTimer::dataBuffer = 0;
 uint8_t GPSTimer::dataRemaining = 0;
 uint8_t GPSTimer::dataType = 4;
+uint8_t GPSTimer::dataInterval = 1;
 bool GPSTimer::locValid = false;
 float GPSTimer::lat;
 float GPSTimer::lng;
@@ -69,7 +70,7 @@ void GPSTimer::begin() {
 //Calibrates timing using GPS
 void GPSTimer::update() {
 	//If PPS is active, only do expensive time check after calibration
-	if ((!ppsActive || (totalCycles() < 4000000)) && (gps->time.second() != seconds)) {
+	if ((!ppsActive || (totalCycles() < 4000000)) && gps->time.isValid() && (gps->time.second() != seconds)) {
 		//Calibrates on GPS time update without satellites
 		if (!ppsActive) {
 			calibrateSecond();
@@ -181,10 +182,13 @@ void GPSTimer::sendDataBit() {
 		if (dataRemaining > 0) {
 			//Writes least signficant bit to data pin
 			digitalWrite(dataPin, dataBuffer & 1);
-			//Shifts out least significant bit and adds to open data
-			dataBuffer = dataBuffer >> 1;
-			dataRemaining--;
-		} else if (dataType < 1) {
+			
+			if ((pulseCount/2) % dataInterval == 0) {
+				//Shifts out least significant bit and adds to open data
+				dataBuffer = dataBuffer >> 1;
+				dataRemaining--;
+			}
+		} else if (dataType < 4) {
 			//Adds next data type to buffer
 			switch(dataType) {
 				case 0:
@@ -318,7 +322,7 @@ void GPSTimer::setGPSInfo() {
 	hours = gps->time.hour();
 	minutes = gps->time.minute();
 	seconds = gps->time.second();
-
+	
 	//Location data
 	locValid = gps->location.isValid();
 	lat = gps->location.lat();
