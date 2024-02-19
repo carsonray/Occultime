@@ -8,6 +8,7 @@
 
 #include <Arduino.h>
 #include <TinyGPSPlus.h>
+#include <TimeLib.h>
 
 class GPSTimer {
 	private:
@@ -30,7 +31,7 @@ class GPSTimer {
 		static uint16_t ovfCount;
 
 		//Counts square wave half-pulses
-		static uint32_t pulseCount;
+		static uint16_t pulseCount;
 
 		//Stamps first pps signal
 		static uint16_t ppsStamp;
@@ -44,6 +45,15 @@ class GPSTimer {
 		//pulseLength error every 2^24 clock cycles
 		static uint16_t pulseLengthError;
 
+		//Accumulated error correction
+		static uint16_t correctionSum;
+
+		//Current error correction
+		static uint16_t errorCorrection;
+
+		//Projected pulse length correction
+		static uint16_t projectedCorrection;
+
 		//Flag to begin calibration
 		static bool calibrateFlag;
 
@@ -52,6 +62,8 @@ class GPSTimer {
 
 		//Pin for data transmission
 		static uint8_t dataPin;
+
+		static uint8_t dataCount;
 
 		//Flag when data transmission is enabled
 		static bool dataEnabled;
@@ -68,6 +80,8 @@ class GPSTimer {
 		//How often unique data bit is sent
 		static uint8_t dataInterval;
 
+		static boolean dataFinished;
+
 		//GPS latitude and longitude data
 		static bool locValid;
 		static float lat;
@@ -77,29 +91,12 @@ class GPSTimer {
 
 		//Date
 		static bool timeValid;
-		static uint16_t years;
-		static uint8_t months;
-		static uint8_t days;
-
-		//Days in each month
-		static uint8_t monthDays[12];
-
-		//Time
-		static uint8_t hours;
-		static uint8_t minutes;
-		static uint8_t seconds;
 
 		static uint32_t adjustedMicros();
 
 		static void setGPSInfo();
 
 		static void calibrateWave();
-
-		static void addSeconds(uint8_t secondDiff);
-		static void addMinutes(uint8_t minuteDiff);
-		static void addHours(uint8_t hourDiff);
-		static void addDays(uint8_t dayDiff);
-		static void addYears(uint16_t yearDiff);
 
 		//TinyGPSPlus object
 		static TinyGPSPlus* gps;
@@ -116,11 +113,10 @@ class GPSTimer {
 		static void sendWave();
 
 		static void enableData();
-		static void enableData(uint8_t dataPin);
+		static void enableData(uint8_t dataPin, uint16_t dataInterval);
 		static void disableData();
 		static void sendDataBit();
-		static void resetData();
-
+		
 		static uint32_t totalCycles();
 		static uint32_t totalCycles(uint32_t timestamp);
 		static void calibrateSecond();
@@ -131,13 +127,6 @@ class GPSTimer {
 		static bool getDataEnabled();
 		static void incrementOvf();
 		
-		static uint16_t year();
-		static uint8_t month();
-		static uint8_t day();
-
-		static uint8_t hour();
-		static uint8_t minute();
-		static uint8_t second();
 		static uint32_t microsecond();
 
 		static uint32_t getCyclesPerSecond();

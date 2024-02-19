@@ -19,7 +19,10 @@
 #define dataPin 13
 
 //Real frequency
-#define realFreq 500
+#define realFreq 1000
+
+//Data interval
+#define dataInterval 4
 
 //TinyGPSPlus object
 TinyGPSPlus gps;
@@ -29,7 +32,7 @@ void setup() {
   sssBegin();
   GPSTimer::setGPS(&gps);
   GPSTimer::enableWave(tonePin, realFreq);
-  GPSTimer::enableData(dataPin);
+  GPSTimer::enableData(dataPin, dataInterval);
   GPSTimer::begin();
 }
 

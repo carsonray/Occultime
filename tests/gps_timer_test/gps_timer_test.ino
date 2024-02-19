@@ -18,8 +18,8 @@ void setup() {
   Serial.begin(115200);
   sssBegin();
   GPSTimer::setGPS(&gps);
-  GPSTimer::enableWave(12, 150);
-  //GPSTimer::enableData(13);
+  GPSTimer::enableWave(12, 20000);
+  GPSTimer::enableData(13, 80);
   GPSTimer::begin();
 }
 
@@ -32,7 +32,7 @@ void loop() {
   Serial.print("Date: ");
   if (gps.date.isValid()) {
     char buffer[32];
-    sprintf(buffer, "%02d/%02d/%02d", GPSTimer::month(), GPSTimer::day(), GPSTimer::year());
+    sprintf(buffer, "%02d/%02d/%02d", month(), day(), year());
     Serial.println(buffer);
   } else {
     Serial.println();
@@ -42,7 +42,7 @@ void loop() {
   Serial.print("Time: ");
   if (gps.time.isValid()) {
     char buffer[32];
-    sprintf(buffer, "%02d:%02d:%02d:%06lu", GPSTimer::hour(), GPSTimer::minute(), GPSTimer::second(), GPSTimer::microsecond());
+    sprintf(buffer, "%02d:%02d:%02d:%06lu", hour(), minute(), second(), GPSTimer::microsecond());
     Serial.println(buffer);
   } else {
     Serial.println();

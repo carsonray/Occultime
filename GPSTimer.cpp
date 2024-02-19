@@ -3,7 +3,6 @@
   Created by Carson G. Ray, August 12 2022.
 */
 
-#include <Arduino.h>
 #include "GPSTimer.h"
 
 //Initializes static members
@@ -13,32 +12,30 @@ bool GPSTimer::waveEnabled = false;
 uint16_t GPSTimer::frequency = 1;
 bool GPSTimer::waveState = false;
 uint16_t GPSTimer::ovfCount = 0;
-uint32_t GPSTimer::pulseCount = 0;
+uint16_t GPSTimer::pulseCount = 0;
 uint16_t GPSTimer::ppsStamp = 0;
 uint32_t GPSTimer::cyclesPerSecond = 16000000;
 uint16_t GPSTimer::pulseLength = 0;
 uint16_t GPSTimer::pulseLengthError = 0;
+uint16_t GPSTimer::errorCorrection = 0;
+uint16_t GPSTimer::correctionSum = 0;
+uint16_t GPSTimer::projectedCorrection = 0;
 bool GPSTimer::calibrateFlag = false;
 bool GPSTimer::calcFlag = false;
 uint8_t GPSTimer::dataPin = 6;
+uint8_t GPSTimer::dataCount = 0;
 bool GPSTimer::dataEnabled = false;
 uint64_t GPSTimer::dataBuffer = 0;
 uint8_t GPSTimer::dataRemaining = 0;
 uint8_t GPSTimer::dataType = 4;
 uint8_t GPSTimer::dataInterval = 1;
+boolean GPSTimer::dataFinished = true;
 bool GPSTimer::locValid = false;
 float GPSTimer::lat;
 float GPSTimer::lng;
 uint32_t GPSTimer::lngBin;
 uint32_t GPSTimer::latBin;
 bool GPSTimer::timeValid = false;
-uint16_t GPSTimer::years = 2000;
-uint8_t GPSTimer::months = 0;
-uint8_t GPSTimer::days = 0;
-uint8_t GPSTimer::monthDays[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-uint8_t GPSTimer::hours = 0;
-uint8_t GPSTimer::minutes = 0;
-uint8_t GPSTimer::seconds = 0;
 TinyGPSPlus* GPSTimer::gps;
 
 //Float to int converter
@@ -70,16 +67,7 @@ void GPSTimer::begin() {
 //Calibrates timing using GPS
 void GPSTimer::update() {
 	//If PPS is active, only do expensive time check after calibration
-	if ((!ppsActive || (totalCycles() < 4000000)) && gps->time.isValid() && (gps->time.second() != seconds)) {
-		//Calibrates on GPS time update without satellites
-		if (!ppsActive) {
-			calibrateSecond();
-
-			//Resets timer and overflow counter
-			TCNT1 = 0;
-			ovfCount = 0;
-		}
-
+	if ((totalCycles() < 4000000) && gps->time.isUpdated()) {
 		//Sets gps information
 		setGPSInfo();
 	}
@@ -132,9 +120,12 @@ void GPSTimer::ppsEvent() {
 	//Updates sqaure wave
 	if (waveEnabled && ppsActive) {
 		//Starts new square wave
-		waveState = true;
+		waveState = false;
 		pulseCount = 0;
-		GPSTimer::nextWaveInterrupt();
+		errorCorrection = 0;
+		correctionSum = 0;
+		dataFinished = false;
+		sendWave();
 	}
 
 	//Resets overflow counter
@@ -144,13 +135,18 @@ void GPSTimer::ppsEvent() {
 	ppsActive = true;
 
 	//Starts sending new time and location data
-	GPSTimer::resetData();
+	dataType = 0;
 }
 
 //Sends wave signal
 void GPSTimer::sendWave() {
-	waveState = !waveState;
-	nextWaveInterrupt();
+	if (waveEnabled) {
+		waveState = !waveState;
+		nextWaveInterrupt();
+		if (dataEnabled && !dataFinished) {
+			sendDataBit();
+		}
+	}
 }
 
 //Enables serial time and location output every second synchronized with square wave
@@ -158,15 +154,15 @@ void GPSTimer::enableData() {
 	enableWave();
 	dataEnabled = true;
 }
-void GPSTimer::enableData(uint8_t dataPin) {
+void GPSTimer::enableData(uint8_t dataPin, uint16_t dataInterval) {
 	//Sets output pin
 	GPSTimer::dataPin = dataPin;
 
+	//Sets data interval
+	GPSTimer::dataInterval = dataInterval;
+
 	//Raises wave and data flags
 	enableData();
-
-	//Calibrates wave parameters
-	calibrateWave();
 }
 
 //Disables data output
@@ -183,10 +179,13 @@ void GPSTimer::sendDataBit() {
 			//Writes least signficant bit to data pin
 			digitalWrite(dataPin, dataBuffer & 1);
 			
-			if ((pulseCount/2) % dataInterval == 0) {
+			if (dataCount == (dataInterval-1)) {
 				//Shifts out least significant bit and adds to open data
 				dataBuffer = dataBuffer >> 1;
 				dataRemaining--;
+				dataCount = 0;
+			} else {
+				dataCount++;
 			}
 		} else if (dataType < 4) {
 			//Adds next data type to buffer
@@ -208,17 +207,12 @@ void GPSTimer::sendDataBit() {
 				case 2:
 					//Time information
 					if (timeValid) {
-						dataBuffer = (uint64_t)((uint64_t)year()<<28);
-						dataBuffer += (uint64_t)((uint64_t)month()<<24);
-						dataBuffer += (uint64_t)((uint64_t)day()<<18);
-						dataBuffer += (uint64_t)((uint64_t)hour()<<12);
-						dataBuffer += (uint64_t)((uint64_t)minute()<<6);
-						dataBuffer += (uint64_t)second();
+						dataBuffer = now();
 					} else {
 						dataBuffer = 0;
 					}
 
-					dataRemaining = 44;
+					dataRemaining = 32;
 					break;
 				case 3:
 					//End bit
@@ -232,14 +226,12 @@ void GPSTimer::sendDataBit() {
 
 			//Increments data type
 			dataType++;
+		} else {
+			dataFinished = true;
 		}
 	} else {
 		digitalWrite(dataPin, false);
 	}
-}
-
-void GPSTimer::resetData() {
-	dataType = 0;
 }
 
 //Calibrates pulseLength and error from cyclesPerSecond
@@ -272,9 +264,6 @@ void GPSTimer::calibrateSecond() {
 	calibrateSecond(totalCycles());
 }
 void GPSTimer::calibrateSecond(uint32_t cyclesPerSecond) {
-	//Increments seconds
-	addSeconds(1);
-
 	//Only calibrates if two PPS signals are received
 	if (calibrateFlag) {
 		//Gets error in microseconds every second
@@ -293,11 +282,21 @@ void GPSTimer::nextWaveInterrupt() {
 	//Writes current state
 	digitalWrite(wavePin, waveState);
 
+	//Sets interrupt point at next half pulse
+	projectedCorrection = correctionSum + errorCorrection*((frequency*2) - pulseCount);
+	if (projectedCorrection < pulseLengthError) {
+		errorCorrection++;
+	} else if (projectedCorrection > pulseLengthError) {
+		errorCorrection--;
+	}
+
 	//Increments half pulse counter
 	pulseCount++;
 
-	//Sets interrupt point at next half pulse
-	OCR1A = (uint16_t) (pulseLength*pulseCount + (pulseLengthError*pulseCount)/(frequency*2));
+	//Increments correction sum
+	correctionSum += errorCorrection;
+
+	OCR1A = (uint16_t) (pulseLength*pulseCount + errorCorrection);
 }
 
 boolean GPSTimer::getWaveEnabled() {
@@ -315,13 +314,7 @@ void GPSTimer::incrementOvf() {
 void GPSTimer::setGPSInfo() {
 	//Time data
 	timeValid = gps->time.isValid();
-	years = gps->date.year();
-	months = gps->date.month();
-	days = gps->date.day();
-
-	hours = gps->time.hour();
-	minutes = gps->time.minute();
-	seconds = gps->time.second();
+	setTime(gps->time.hour(), gps->time.minute(), gps->time.second(), gps->date.day(), gps->date.month(), gps->date.year());
 	
 	//Location data
 	locValid = gps->location.isValid();
@@ -333,77 +326,6 @@ void GPSTimer::setGPSInfo() {
 	lngBin = data.output;
 }
 
-void GPSTimer::addSeconds(uint8_t secondDiff) {
-	seconds += secondDiff;
-	uint8_t minuteDiff = seconds / 60;
-	seconds = seconds % 60;
-	if (minuteDiff > 0) {
-		addMinutes(minuteDiff);
-	}
-}
-
-void GPSTimer::addMinutes(uint8_t minuteDiff) {
-	minutes += minuteDiff;
-	uint8_t hourDiff = minutes / 60;
-	minutes = minutes % 60;
-	if (hourDiff > 0) {
-		addHours(hourDiff);
-	}
-}
-
-void GPSTimer::addHours(uint8_t hourDiff) {
-	hours += hourDiff;
-	uint8_t dayDiff = hours / 24;
-	hours = hours % 24;
-	if (dayDiff > 0) {
-		addDays(dayDiff);
-	}
-}
-
-void GPSTimer::addDays(uint8_t dayDiff) {
-	days += dayDiff;
-	while (true) {
-		uint8_t maxDays = monthDays[months];
-		if (days >= maxDays) {
-			days -= maxDays;
-			months++;
-			if (months >= 12) {
-				addYears(1);
-			}
-			months %= 12;
-		} else {
-			break;
-		}
-	}
-}
-
-void GPSTimer::addYears(uint16_t yearDiff) {
-	years += yearDiff;
-}
-
-uint16_t GPSTimer::year() {
-	return years;
-}
-
-uint8_t GPSTimer::month() {
-	return months;
-}
-
-uint8_t GPSTimer::day() {
-	return days;
-}
-
-uint8_t GPSTimer::hour() {
-	return hours;
-}	
-
-uint8_t GPSTimer::minute() {
-	return minutes;
-}
-
-uint8_t GPSTimer::second() {
-	return seconds;
-}
 uint32_t GPSTimer::microsecond() {
 	uint32_t microTime = adjustedMicros();
 	return (microTime < 1000000) ? microTime : 999999;
@@ -433,18 +355,11 @@ bool GPSTimer::isTimeValid() {
 
 //Checks for rising edge of PPS signal
 ISR(TIMER1_CAPT_vect) {
-	cli();
 	GPSTimer::ppsEvent();
-	sei();
 }
 
 ISR(TIMER1_COMPA_vect) {
-	if (GPSTimer::getWaveEnabled() && GPSTimer::isPPSActive() && GPSTimer::isTimeValid()) {
-		GPSTimer::sendWave();
-		if (GPSTimer::getDataEnabled()) {
-			GPSTimer::sendDataBit();
-		}
-	}
+	GPSTimer::sendWave();
 }
 
 ISR(TIMER1_OVF_vect) {
