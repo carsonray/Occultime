@@ -12,6 +12,7 @@ bool GPSTimer::waveEnabled = false;
 uint16_t GPSTimer::frequency = 1;
 bool GPSTimer::waveState = false;
 uint16_t GPSTimer::ovfCount = 0;
+uint16_t GPSTimer::prevOvfCount = 0;
 uint16_t GPSTimer::pulseCount = 0;
 uint16_t GPSTimer::ppsStamp = 0;
 uint32_t GPSTimer::cyclesPerSecond = 16000000;
@@ -80,8 +81,9 @@ void GPSTimer::update() {
 	}
 
 	if (totalCycles() > 32000000) {
-		//Resets overflow count
+		//Resets overflow count and ppsStamp
 		ovfCount = 0;
+		ppsStamp = 0;
 
 		//Resets flags
 		calibrateFlag = false;
@@ -95,6 +97,7 @@ void GPSTimer::enableWave() {
 }
 void GPSTimer::enableWave(uint8_t wavePin, uint16_t frequency) {
 	GPSTimer::wavePin = wavePin;
+	pinMode(wavePin, OUTPUT);
 	GPSTimer::frequency = frequency;
 
 	//Raises square wave flag
@@ -111,8 +114,16 @@ void GPSTimer::disableWave() {
 
 //Updates wave signal parameters every second
 void GPSTimer::ppsEvent() {
+	prevOvfCount = ovfCount;
+	ovfCount = 0;
+
+	if (calibrateFlag) {
+		//Raises pps active flag
+		ppsActive = true;
+	}
+
 	//Calibrates second
-	calibrateSecond(totalCycles(ICR1));
+	calibrateSecond(totalCycles(ICR1, prevOvfCount));
 
 	//Stamps time
 	ppsStamp = ICR1;
@@ -125,22 +136,14 @@ void GPSTimer::ppsEvent() {
 		errorCorrection = 0;
 		correctionSum = 0;
 		dataFinished = false;
+		dataType = 0;
 		sendWave();
 	}
-
-	//Resets overflow counter
-	ovfCount = 0;
-
-	//Raises pps active flag
-	ppsActive = true;
-
-	//Starts sending new time and location data
-	dataType = 0;
 }
 
 //Sends wave signal
 void GPSTimer::sendWave() {
-	if (waveEnabled) {
+	if (waveEnabled && ppsActive) {
 		waveState = !waveState;
 		nextWaveInterrupt();
 		if (dataEnabled && !dataFinished) {
@@ -157,6 +160,7 @@ void GPSTimer::enableData() {
 void GPSTimer::enableData(uint8_t dataPin, uint16_t dataInterval) {
 	//Sets output pin
 	GPSTimer::dataPin = dataPin;
+	pinMode(dataPin, OUTPUT);
 
 	//Sets data interval
 	GPSTimer::dataInterval = dataInterval;
@@ -245,9 +249,19 @@ uint32_t GPSTimer::totalCycles() {
 	return totalCycles(TCNT1);
 }
 
-//Gets total clock cycles based on timestamp
 uint32_t GPSTimer::totalCycles(uint32_t timestamp) {
-	return ovfCount*65536 + timestamp - ppsStamp;
+	return totalCycles(timestamp, ovfCount);
+}
+
+//Gets total clock cycles based on timestamp
+uint32_t GPSTimer::totalCycles(uint32_t timestamp, uint16_t ovf) {
+	if (timestamp > ppsStamp) {
+		return ovf*65536 + timestamp - ppsStamp;
+	} else if (ovf > 0) {
+		return ovf*65536 - (ppsStamp - timestamp);
+	} else {
+		return 0;
+	}
 }
 
 //Gets adjusted microseconds
@@ -264,6 +278,9 @@ void GPSTimer::calibrateSecond() {
 	calibrateSecond(totalCycles());
 }
 void GPSTimer::calibrateSecond(uint32_t cyclesPerSecond) {
+	//Resets overflow count
+	ovfCount = 0;
+
 	//Only calibrates if two PPS signals are received
 	if (calibrateFlag) {
 		//Gets error in microseconds every second
@@ -296,7 +313,7 @@ void GPSTimer::nextWaveInterrupt() {
 	//Increments correction sum
 	correctionSum += errorCorrection;
 
-	OCR1A = (uint16_t) (pulseLength*pulseCount + errorCorrection);
+	OCR1A = (uint16_t) (pulseLength*pulseCount + correctionSum);
 }
 
 boolean GPSTimer::getWaveEnabled() {

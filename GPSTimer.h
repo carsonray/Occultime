@@ -30,6 +30,8 @@ class GPSTimer {
 		//Counts timer overflows
 		static uint16_t ovfCount;
 
+		static uint16_t prevOvfCount;
+
 		//Counts square wave half-pulses
 		static uint16_t pulseCount;
 
@@ -119,6 +121,7 @@ class GPSTimer {
 		
 		static uint32_t totalCycles();
 		static uint32_t totalCycles(uint32_t timestamp);
+		static uint32_t totalCycles(uint32_t timestamp, uint16_t ovf);
 		static void calibrateSecond();
 		static void calibrateSecond(uint32_t microsPerSecond);
 		static void nextWaveInterrupt();

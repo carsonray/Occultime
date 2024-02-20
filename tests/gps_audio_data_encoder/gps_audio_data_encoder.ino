@@ -13,22 +13,22 @@
 //PPS attacted to input capture pin 8
 
 //Tone pin
-#define tonePin 12
+#define tonePin 10
 
 //Data pin
-#define dataPin 13
+#define dataPin 11
 
 //Real frequency
-#define realFreq 1000
+#define realFreq 10000
 
 //Data interval
-#define dataInterval 4
+#define dataInterval 40
 
 //TinyGPSPlus object
 TinyGPSPlus gps;
 
 void setup() {
-  //Serial.begin(115200);
+  Serial.begin(115200);
   sssBegin();
   GPSTimer::setGPS(&gps);
   GPSTimer::enableWave(tonePin, realFreq);
