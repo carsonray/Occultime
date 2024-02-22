@@ -97,7 +97,7 @@ void GPSTimer::enableWave() {
 }
 void GPSTimer::enableWave(uint8_t wavePin, uint16_t frequency) {
 	GPSTimer::wavePin = wavePin;
-	pinMode(wavePin, OUTPUT);
+	//pinMode(wavePin, OUTPUT);
 	GPSTimer::frequency = frequency;
 
 	//Raises square wave flag
@@ -160,7 +160,7 @@ void GPSTimer::enableData() {
 void GPSTimer::enableData(uint8_t dataPin, uint16_t dataInterval) {
 	//Sets output pin
 	GPSTimer::dataPin = dataPin;
-	pinMode(dataPin, OUTPUT);
+	//pinMode(dataPin, OUTPUT);
 
 	//Sets data interval
 	GPSTimer::dataInterval = dataInterval;
@@ -180,16 +180,17 @@ void GPSTimer::sendDataBit() {
 	if (waveState) {
 		//If there is a data bit available
 		if (dataRemaining > 0) {
-			//Writes least signficant bit to data pin
-			digitalWrite(dataPin, dataBuffer & 1);
-			
-			if (dataCount == (dataInterval-1)) {
+			if (dataCount == 0) {
+				//Writes least signficant bit to data pin
+				digitalWrite(dataPin, dataBuffer & 1);
+
 				//Shifts out least significant bit and adds to open data
 				dataBuffer = dataBuffer >> 1;
 				dataRemaining--;
-				dataCount = 0;
+				dataCount = dataInterval-1;
 			} else {
-				dataCount++;
+				digitalWrite(dataPin, false);
+				dataCount--;
 			}
 		} else if (dataType < 4) {
 			//Adds next data type to buffer
@@ -313,7 +314,7 @@ void GPSTimer::nextWaveInterrupt() {
 	//Increments correction sum
 	correctionSum += errorCorrection;
 
-	OCR1A = (uint16_t) (pulseLength*pulseCount + correctionSum);
+	OCR1A = (uint16_t) (ppsStamp + pulseLength*pulseCount + correctionSum);
 }
 
 boolean GPSTimer::getWaveEnabled() {
