@@ -19,10 +19,10 @@
 #define dataPin 11
 
 //Real frequency
-#define realFreq 1000
+#define realFreq 2000
 
 //Data interval
-#define dataInterval 4
+#define dataInterval 8
 
 //TinyGPSPlus object
 TinyGPSPlus gps;
